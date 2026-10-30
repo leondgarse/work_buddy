@@ -106,6 +106,7 @@ def test_meeting_vtt(tmp_path):
     assert it.body == "Alice: We ship Friday\nBob: OK"
     assert it.ts.startswith("2026-10-20")
     assert it.title == "2026-10-20 sync"
+    assert it.file_stem().startswith("2026-10-20_sync_")  # date not repeated
 
 
 def test_git_source(root, store, tmp_path):

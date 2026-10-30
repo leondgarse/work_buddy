@@ -41,7 +41,9 @@ class Item:
         return h.hexdigest()
 
     def file_stem(self) -> str:
-        slug = re.sub(r"[^\w.-]+", "-", self.title).strip("-.")[:40] or "untitled"
+        # Titles taken from file names often start with the date already; don't repeat it.
+        title = re.sub(r"^\d{4}[-_.]?\d{2}[-_.]?\d{2}[\s_.-]*", "", self.title)
+        slug = re.sub(r"[^\w.-]+", "-", title).strip("-.")[:40] or "untitled"
         return f"{self.ts[:10]}_{slug}_{hashlib.sha1(self.id.encode()).hexdigest()[:8]}"
 
     def to_markdown(self) -> str:
