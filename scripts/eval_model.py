@@ -108,6 +108,9 @@ def main() -> None:
     (home / "config.yaml").write_text(f"meetings:\n  dirs: [{notes}]\n")
     run("req", "new", "PAY-1", "--title", "Refunds", "--alias", "refunds", "--alias", "退款")
     run("sync")
+    linked = json.loads(run("pending", "PAY-1", "--json").stdout)
+    if len(linked) != 3:  # the setup, not the model, would be under test
+        raise SystemExit(f"setup error: expected 3 pending PAY-1 sources, got {[r['title'] for r in linked]}")
 
     cmd = ["hermes", "chat", "-Q", "-s", "work-buddy", "-q", PROMPT.format(home=home)]
     if args.provider:

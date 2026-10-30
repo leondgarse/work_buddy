@@ -54,6 +54,8 @@ def test_linker_rules(root, store):
 
     assert s(item(body="see pay-7 for details")) == 1.0
     assert s(item(body="PAY-70 is different")) == 0
+    assert s(item(title="2026-10-21_PAY-7-weekly")) == 1.0  # file-name style title
+    assert s(item(body="PAY-7-2 is a sub-ticket")) == 0
     assert s(item(title="退款 review")) == 0.7
     assert s(item(body="the refund flow")) == 0.5
     assert s(item(body="refund flow and 退款")) == 0.8
@@ -193,7 +195,10 @@ def test_sync_end_to_end_and_cli(root, tmp_path, capsys):
     pending = json.loads(capsys.readouterr().out)
     assert [p["title"] for p in pending] == ["PAY-1 weekly"]
 
-    cli.main(["done", "PAY-1"])
+    with pytest.raises(SystemExit):
+        cli.main(["done", "PAY-1"])  # must name items or pass --all
+    cli.main(["done", "PAY-1", pending[0]["id"]])
+    assert "0 still pending" in capsys.readouterr().out
     cli.main(["sync"])
     assert "No requirement got new sources" in capsys.readouterr().out
 

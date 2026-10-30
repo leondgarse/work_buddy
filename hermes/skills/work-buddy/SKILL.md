@@ -53,7 +53,8 @@ the Chinese and English names of a concept. Terms of 1–2 characters use slower
 
 For each requirement listed in the sync output, or the one the user names:
 
-1. `wb pending <ID>` lists linked items not yet summarized, oldest first. Read each file.
+1. `wb pending <ID>` lists linked items not yet summarized, oldest first, with a count. Read **every**
+   file it lists before writing anything. A later item often overrides an earlier one.
 2. Check each item really belongs here. Auto-links on a single alias (`linked_by: auto:alias:...`)
    can be wrong: `wb unlink <item> <ID>` if it is unrelated.
 3. Add one line per meaningful event to `timeline.md` in date order:
@@ -68,7 +69,8 @@ For each requirement listed in the sync output, or the one the user names:
    - Every bullet ends with `(sources/<file>)`; use the file names as they appear under `sources/`.
    - An updated Lark doc shows up as pending again: its previous version is in
      `$WB_HOME/items/_history/`. Diff the two and record what changed.
-5. `wb done <ID>` once everything listed is reflected. Pass item ids to mark only some of them.
+5. `wb done <ID> <item-id> [<item-id> ...]` with the ids of the items you actually read and reflected.
+   It prints what is still pending. If anything is, go back to step 1. Never mark items you haven't read.
 
 ## Triaging the inbox
 

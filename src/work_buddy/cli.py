@@ -114,13 +114,19 @@ def cmd_pending(args, root, store) -> None:
     dossier.load(root, args.id)
     rows = [{"id": r["id"], "source": r["source"], "ts": r["ts"], "title": r["title"],
              "file": str(root / r["path"]), "linked_by": r["method"]} for r in store.pending(args.id)]
-    text = "\n".join(f"{r['ts'][:16]} [{r['source']}] {r['title'][:80]}\n    {r['file']}" for r in rows)
-    _out(args, rows, text or f"{args.id}: nothing pending")
+    text = "\n".join(f"{r['ts'][:16]} [{r['source']}] {r['title'][:80]}\n    id:   {r['id']}\n    file: {r['file']}"
+                     for r in rows)
+    _out(args, rows, f"{len(rows)} pending:\n{text}" if rows else f"{args.id}: nothing pending")
 
 
 def cmd_done(args, root, store) -> None:
-    n = store.mark_done(args.id, args.items or None)
-    print(f"{args.id}: marked {n} item(s) summarized")
+    if not args.items and not args.all:
+        sys.exit("error: name the item ids you summarized (from `wb pending`), or pass --all")
+    n = store.mark_done(args.id, None if args.all else args.items)
+    left = store.pending(args.id)
+    print(f"{args.id}: marked {n} item(s) summarized; {len(left)} still pending")
+    for r in left:
+        print(f"  pending: {r['id']}  {r['title'][:70]}")
 
 
 def cmd_search(args, root, store) -> None:
@@ -187,9 +193,10 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("id")
     s.set_defaults(fn=cmd_pending)
 
-    s = sub.add_parser("done", parents=[common], help="mark pending items summarized (all, or the given ids)")
+    s = sub.add_parser("done", parents=[common], help="mark the given pending items summarized")
     s.add_argument("id")
-    s.add_argument("items", nargs="*")
+    s.add_argument("items", nargs="*", help="item ids from `wb pending`")
+    s.add_argument("--all", action="store_true", help="mark every pending item, read or not")
     s.set_defaults(fn=cmd_done)
 
     s = sub.add_parser("search", parents=[common], help="full-text search over all items")

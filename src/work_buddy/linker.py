@@ -55,7 +55,8 @@ def score(item: Item, req: Requirement, thread_reqs: set[str]) -> Match:
     m = Match(req.id)
     text_lower = item.text.lower()
 
-    if re.search(rf"(?<![\w-]){re.escape(req.id)}(?![\w-])", item.text, re.IGNORECASE):
+    # "_PAY-1-weekly" mentions PAY-1; "PAY-10" and "PAY-1-2" don't.
+    if re.search(rf"(?<![A-Za-z0-9]){re.escape(req.id)}(?![A-Za-z0-9]|-\d)", item.text, re.IGNORECASE):
         m.hit(1.0, "id")
     if req.id in thread_reqs:
         m.hit(0.9, "thread")
