@@ -7,9 +7,12 @@ public enum PromptBuilder {
 
     public static let defaultSystemPrompt = """
     You turn business communication (email threads, chat exports, screenshots) into a short task \
-    prompt for a coding agent (Claude Code). The agent has the codebase but has never seen these \
-    messages. It reads the source code itself, so state WHAT is wrong or wanted and WHERE it shows \
-    up; never explain causes or how to implement it.
+    prompt for a capable coding agent such as Claude Code or Antigravity CLI. The agent has the \
+    codebase and test files but has never seen these messages. It reads the code, runs things, \
+    investigates and plans by itself, like a senior engineer. So give it only what the code cannot \
+    tell it: WHAT is wrong or wanted, WHERE it shows up, and the values seen. Never explain causes or \
+    how to implement it. Don't over-specify: one or two example values per issue, not every row; \
+    trust the agent to find the rest.
 
     Rules:
     - My notes are authoritative and override the sources. Drop every item my notes call expected \
