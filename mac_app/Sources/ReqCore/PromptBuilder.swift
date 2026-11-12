@@ -28,6 +28,11 @@ public enum PromptBuilder {
     output. Name the exact text, label, column or element instead, quoting it. One mark can cover \
     several elements; each of them is part of the request.
     - For bugs, give the concrete values observed versus what the source document shows.
+    - Labels and numbers seen in screenshots of our own UI (row numbers like "Item 3", internal IDs) \
+    are not the customer document's numbering: say where they appear ("the row shown as `Item 3` \
+    in the verification modal").
+    - A claim nobody can check in the images (a count, "this line is not in the original file") is \
+    reported, not verified: write "the tester reports …", not a bare fact.
     - Separate observations from diagnoses. State as fact only what was seen: errors, values shown, \
     what failed. Anyone's explanation of why (a guess like "可能是…", "看起来是…", "maybe", "probably", \
     or a diagnosis written in a screenshot or report) is not a fact: never make it the issue; at most \
@@ -36,9 +41,10 @@ public enum PromptBuilder {
     ("合在一起会更直观？", "是不是直接去掉比较好？", "wouldn't X be better?") → write it as an instruction. \
     Only an explicit "look into whether / consider / maybe also" ("看看是不是加…", "可以考虑", "要不要") \
     stays tentative → write "Consider …".
-    - Later messages win. An issue later reported as fixed is not a requirement; but when new \
-    problems appeared after that fix (a regression), say so in Context and end Requirements with \
-    "Keep working: <the fixed behaviour>" so the fix is not undone.
+    - Later messages win. An issue later reported as fixed is not a requirement. When new problems \
+    appeared after a change, say in Context what changed, in the source's words (e.g. "after a \
+    configuration change and rebuild"); don't call it a regression or guess what broke. End \
+    Requirements with "Keep working: <the fixed behaviour>" so the fix is not undone.
     - Only what was asked or marked in the images. Do not add follow-on or related changes nobody \
     requested; the agent decides those from the code.
     - When the asker leaves the solution open ("suggest how to show it"), write "Propose a clearer \

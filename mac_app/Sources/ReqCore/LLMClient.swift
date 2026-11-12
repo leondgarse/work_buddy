@@ -31,12 +31,13 @@ public struct ModelInfo: Identifiable, Hashable {
 }
 
 public enum LLMError: LocalizedError {
-    case badURL, http(Int, String), noKey(String)
+    case badURL, http(Int, String), noKey(String), emptyAnswer(Int)
     public var errorDescription: String? {
         switch self {
         case .badURL: return "Invalid base URL"
         case .http(let c, let b): return "HTTP \(c): \(b.prefix(800))"
         case .noKey(let p): return "No API key for \(p). Set one in Settings or its env var."
+        case .emptyAnswer(let r): return "The model returned no answer (only \(r) characters of reasoning). Try again, or use another model."
         }
     }
 }
@@ -113,7 +114,7 @@ public struct LLMClient {
             for try await line in bytes.lines { err += line + "\n"; if err.count > 4000 { break } }
             throw LLMError.http(code, err)
         }
-        var out = ""
+        var out = "", reasoning = 0
         for try await line in bytes.lines {
             try Task.checkCancellation()
             guard line.hasPrefix("data:") else { continue }
@@ -125,9 +126,12 @@ public struct LLMClient {
             let c = delta["content"] as? String ?? ""
             let rc = delta["reasoning_content"] as? String ?? delta["reasoning"] as? String ?? ""
             if !c.isEmpty { out += c }
+            reasoning += rc.count
             if !c.isEmpty || !rc.isEmpty { onDelta(c, rc) }
         }
-        return Self.stripThinking(out)
+        let answer = Self.stripThinking(out)
+        if answer.isEmpty { throw LLMError.emptyAnswer(reasoning) }
+        return answer
     }
 
     public static func stripThinking(_ s: String) -> String {
