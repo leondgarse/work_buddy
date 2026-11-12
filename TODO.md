@@ -13,8 +13,16 @@ the doc is `~/workspace/case-demos/CASES_API.md`. Endpoints used here:
 | `GET /api/health` | which demo backends are live, and which runs are busy |
 | `GET /api/cases[?demo=…]` | recorded cases: `demo`, `id`, `title`, `live` |
 | `POST /api/cases/<demo>/<id>/run?wait=0[&strict=1]` | run a recorded case: `202` plus `Location: /api/runs/<run>`; poll until `passed`, `failed` or `error` |
-| `POST /api/demos/<demo>/run` | run our pipeline on our own files: `{"files": [{"path": …}]}` (per-demo rules, e.g. `pdf_match` takes exactly 2 files, `packing` 1–8) |
+| `POST /api/demos/<demo>/run` | run our pipeline on our own files: `{"files": [{"name": …, "base64": …}]}` or `{"path": …}` (per-demo rules, e.g. `pdf_match` takes exactly 2 files, `packing` 1–8) |
 | `GET /api/runs/<run>` | the report: `status`, `summary` (`failing`, `differences`, `compare`), `diff` against the recording, `problems`, `server_log` |
+
+**The customer-PO verification flow is the `pdf_match` demo.**
+- It takes 2 PDFs: **A** is the reference (the quotation we sent) and **B** is checked against it (the
+  customer's PO).
+- Recorded cases: `agree` (everything matches after unit conversion) and `issues` (a scanned PO with six
+  deliberate differences).
+- The API and its files run on the GPU box (case inputs are server paths, tunneled to this Mac), so a file
+  from the Mac must be **uploaded as base64 with a name**; the suffix picks the reader. A Mac path won't work.
 
 **Plan:**
 
@@ -30,10 +38,16 @@ the doc is `~/workspace/case-demos/CASES_API.md`. Endpoints used here:
      or differences, the diff against the recording, and problems.
    - New prompt rule: a case report is an observation from our own system, so state it as
      "Actual result (case `<demo>/<id>`): …". It also confirms whether the reported problem reproduces.
-3. **Custom runs for test inputs.**
-   - The test-input files among the sources (for example a customer PO PDF plus its quotation PDF) can be sent
-     to `POST /api/demos/<demo>/run` by path.
-   - Suggest the demo from the file set. Before calling, check the demo's file-count rule.
+3. **File upload when a demo is chosen.**
+   - A recorded case isn't enough for most briefs: the files that matter are the customer's own PO and the
+     quotation it answers. A brief usually lists them under "Source files" as `[Should be provided]`.
+   - So choosing a demo opens **one upload slot per input the demo expects**. For `pdf_match`: "A: our
+     quotation" and "B: the customer's PO". Fill a slot by drop, paste or picker, or from a test-input file
+     already among the sources.
+   - Run is enabled only when every required slot is filled. The files go up as base64 with their names, to
+     `POST /api/demos/<demo>/run`.
+   - Slots come from a small per-demo table in the app (`pdf_match`: A, B; `packing`: 1–8 documents;
+     `logistics`: 1 RFQ; …) until the API can describe its own inputs.
 4. **Verify after the fix.**
    - When the agent has implemented the brief, re-run the same cases with `strict=1` and show pass or fail on
      the brief's tab.
@@ -45,11 +59,14 @@ the doc is `~/workspace/case-demos/CASES_API.md`. Endpoints used here:
    - Run reports come from customer documents. Send them only to the model the user picked, and default to a
      local model when cases are ticked.
 
-**Open:**
-- Is the customer-PO verification flow (the one most briefs are about) exposed as a demo yet, or does it need
-  its own runner?
-- Some recorded cases are deliberate failures, such as mismatches or unsupported language. Show their expected
-  verdict next to each case, so a "failed" there doesn't read as a bug.
+**Reading a run's result:**
+- A failure is often **missing or wrong inputs**, not a bug: a slot left empty, A and B swapped, or the
+  quotation the PO cites not provided. Treat the API's `bad_input` problems, and an error before the pipeline
+  ran, as "inputs incomplete" in the app. Prompt for the missing file; don't add it to the brief as an
+  observation.
+- Some recorded cases fail on purpose (`pdf_match/issues`, `packing/mismatch`, …). Show each case's blurb next
+  to it, and compare the run with its recording (`diff`, `matches_recording`) rather than reading
+  `failed`/`passed` alone.
 
 ## ReqBuddy: prompt and benchmark backlog
 
