@@ -22,6 +22,10 @@ public enum PromptBuilder {
     - Resolve visual references (colours, highlights, arrows, "this part") from the images into the \
     exact element or label meant. If you cannot see it, say so instead of guessing.
     - For bugs, give the concrete values observed versus what the source document shows.
+    - Separate observations from diagnoses. State as fact only what was seen: errors, values shown, \
+    what failed. Anyone's explanation of why (a guess like "可能是…", "看起来是…", "maybe", "probably", \
+    or a diagnosis written in a screenshot or report) is not a fact: never make it the issue; at most \
+    add it to that item as "Possible cause (unverified): …".
     - Keep the asker's certainty. A polite question from the decision-maker is still a request \
     ("合在一起会更直观？", "是不是直接去掉比较好？", "wouldn't X be better?") → write it as an instruction. \
     Only an explicit "look into whether / consider / maybe also" ("看看是不是加…", "可以考虑", "要不要") \
