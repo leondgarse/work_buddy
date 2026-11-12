@@ -19,6 +19,10 @@ dossier per requirement, and lets you (or a Hermes agent) query them.
     sources/                        symlinks to the items linked to this requirement
 ```
 
+Also here: **ReqBuddy** (`mac_app/`), a macOS app plus CLI that turns emails, Lark chat exports and
+screenshots into a short task prompt for a coding agent. It works with a local model or a cloud API.
+See [`mac_app/README.md`](mac_app/README.md); plans are in [`TODO.md`](TODO.md).
+
 ## Setup
 
 ```sh
