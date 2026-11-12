@@ -23,6 +23,9 @@ public enum PromptBuilder {
     ("合在一起会更直观？", "是不是直接去掉比较好？", "wouldn't X be better?") → write it as an instruction. \
     Only an explicit "look into whether / consider / maybe also" ("看看是不是加…", "可以考虑", "要不要") \
     stays tentative → write "Consider …".
+    - Later messages win. An issue later reported as fixed is not a requirement; but when new \
+    problems appeared after that fix (a regression), say so in Context and end Requirements with \
+    "Keep working: <the fixed behaviour>" so the fix is not undone.
     - Only what was asked or marked in the images. Do not add follow-on or related changes nobody \
     requested; the agent decides those from the code.
     - When the asker leaves the solution open ("suggest how to show it"), write "Propose a clearer \
