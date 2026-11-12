@@ -33,3 +33,20 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 PLIST
 codesign --force --sign - "$APP" >/dev/null
 echo "Built $PWD/$APP  (CLI: $PWD/dist/reqcli)"
+
+# Install a real copy (Spotlight and Launchpad skip symlinked apps). NO_INSTALL=1 to skip.
+if [ -z "${NO_INSTALL:-}" ]; then
+    DEST="${INSTALL_DIR:-$HOME/Applications}"
+    mkdir -p "$DEST"
+    if pgrep -xq ReqBuddy; then
+        osascript -e 'quit app "ReqBuddy"' >/dev/null 2>&1 || true
+        for _ in 1 2 3 4 5 6 7 8 9 10; do pgrep -xq ReqBuddy || break; sleep 0.5; done
+        RELAUNCH=1
+    fi
+    rm -rf "$DEST/ReqBuddy.app"
+    cp -R "$APP" "$DEST/"
+    mdimport "$DEST/ReqBuddy.app" 2>/dev/null || true
+    /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$DEST/ReqBuddy.app" 2>/dev/null || true
+    echo "Installed $DEST/ReqBuddy.app (⌘Space → ReqBuddy)"
+    [ -n "${RELAUNCH:-}" ] && open "$DEST/ReqBuddy.app"
+fi

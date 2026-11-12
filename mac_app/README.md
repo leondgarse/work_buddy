@@ -39,9 +39,13 @@ coding agent.
 ## Build
 
 ```bash
-./scripts/build_app.sh          # → dist/ReqBuddy.app and dist/reqcli
-open dist/ReqBuddy.app
+./scripts/build_app.sh          # → dist/ReqBuddy.app + dist/reqcli, installed to ~/Applications
 ```
+
+Then start it from Spotlight (⌘Space → ReqBuddy) or Launchpad. Each build replaces the installed
+copy and restarts the app if it was running. `NO_INSTALL=1` skips installing, and
+`INSTALL_DIR=/Applications` installs there instead. It installs a real copy rather than a
+symlink, because Spotlight and Launchpad don't list symlinked apps.
 
 Needs Xcode. The script points `DEVELOPER_DIR` at `/Applications/Xcode.app`, because the Command
 Line Tools lack SwiftUI's macro plugins.
