@@ -69,7 +69,9 @@ def score(brief, checks):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("-c", "--config", action="append", required=True)
+    ap.add_argument("-c", "--config", action="append")
+    ap.add_argument("--rescore", metavar="DIR", nargs="+",
+                    help="re-score saved briefs in results dir(s) against the current checks, without running")
     ap.add_argument("-n", "--repeats", type=int, default=1)
     ap.add_argument("--cases", default=str(HERE.parent.parent / "requirement_example" / "bench"))
     ap.add_argument("--only", help="regex on case id")
@@ -80,6 +82,9 @@ def main():
     cases = [json.loads(p.read_text()) | {"_file": p} for p in sorted(case_dir.glob("*.json"))]
     cases = [c for c in cases if c.get("checks") and (not a.only or re.search(a.only, c["id"]))]
     if not cases: sys.exit(f"no scored cases in {case_dir}")
+    if a.rescore:
+        return rescore([Path(d) for d in a.rescore], {c["id"]: c for c in cases})
+    if not a.config: ap.error("-c/--config is required unless --rescore")
     out = Path(a.out) if a.out else case_dir / "results" / time.strftime("%Y%m%d-%H%M%S")
     out.mkdir(parents=True, exist_ok=True)
     configs = [parse_config(s) for s in a.config]
@@ -108,6 +113,23 @@ def main():
         sc = sum(r["passed"] / r["total"] for r in rs) / len(rs)
         print(f"{cfg['name']:<14}  {sc:6.0%}      {sum(r['secs'] for r in rs) / len(rs):6.0f}")
     print(f"\nbriefs and logs: {out}")
+
+
+def rescore(dirs, cases):
+    """Score saved <config>__<case>__<run>.md briefs with the cases' current checks."""
+    per = {}
+    for d in dirs:
+        for f in sorted(d.glob("*__*__*.md")):
+            cfg, cid, run = f.stem.split("__")
+            if cid not in cases: continue
+            res = score(f.read_text(), cases[cid]["checks"])
+            failed = [n for n, ok in res if not ok]
+            per.setdefault(cfg, []).append(sum(ok for _, ok in res) / len(res))
+            print(f"{cfg:<14} {cid:<18} #{run}  {len(res) - len(failed)}/{len(res)}"
+                  + (f"  failed: {', '.join(failed)}" if failed else ""))
+    print("\nconfig          mean score")
+    for cfg, s in per.items():
+        print(f"{cfg:<14}  {sum(s) / len(s):6.0%}")
 
 
 if __name__ == "__main__":
