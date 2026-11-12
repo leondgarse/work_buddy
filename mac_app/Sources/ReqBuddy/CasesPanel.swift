@@ -9,25 +9,55 @@ struct CasesPanel: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Text("2. Test a related case").font(.headline)
-                Text("Optional").font(.caption).foregroundStyle(.secondary)
+                Text("1. Related case").font(.headline)
+                Text("Optional · select one").font(.caption).foregroundStyle(.secondary)
                 Spacer()
                 Button { Task { await store.refreshCases() } } label: {
                     Image(systemName: "arrow.clockwise")
                 }.help("Refresh availability").disabled(store.loadingCases || store.runningCase != nil)
                 if store.loadingCases { ProgressView().controlSize(.small) }
             }
-            Text("Select the case that fits the issue. Upload its files, run it, then confirm the output for your brief.")
-                .font(.caption).foregroundStyle(.secondary)
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 3), spacing: 6) {
+                ForEach(DemoInputs.supported, id: \.demo) { spec in
+                    choice(spec.shortName, detail: spec.demo, selected: store.selectedDemo == spec.demo) {
+                        store.toggleDemo(spec.demo, on: $0)
+                    }
+                }
+                choice("No case", detail: "Sources only", selected: store.selectedDemo == nil) { on in
+                    if on { store.clearCaseSelection() }
+                }
+            }.disabled(store.runningCase != nil)
             if !store.casesMessage.isEmpty {
                 Text(store.casesMessage).font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
-            }
-            ForEach(DemoInputs.supported, id: \.demo) { spec in
-                CaseCard(spec: spec)
             }
         }
         .disabled(store.busy)
         .task { await store.refreshCases() }
+    }
+
+    private func choice(_ title: String, detail: String, selected: Bool,
+                        onChange: @escaping (Bool) -> Void) -> some View {
+        Toggle(isOn: Binding(get: { selected }, set: onChange)) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).font(.caption.bold()).lineLimit(1)
+                Text(detail).font(.system(size: 10)).foregroundStyle(.secondary).lineLimit(1)
+            }
+        }
+        .toggleStyle(.checkbox)
+        .frame(maxWidth: .infinity, minHeight: 38, alignment: .leading)
+        .padding(6)
+        .background(RoundedRectangle(cornerRadius: 6).fill(selected ? Color.accentColor.opacity(0.12) : Color.secondary.opacity(0.05)))
+        .help(detail)
+    }
+
+}
+
+struct SelectedCasePanel: View {
+    @EnvironmentObject var store: AppStore
+    var body: some View {
+        if let demo = store.selectedDemo, let spec = DemoInputs.spec(demo) {
+            CaseCard(spec: spec).id(demo).disabled(store.busy)
+        }
     }
 }
 
@@ -35,74 +65,90 @@ private struct CaseCard: View {
     @EnvironmentObject var store: AppStore
     let spec: DemoInputs
     @State private var fullReport = false
-    private var selected: Bool { store.selectedDemos.contains(spec.demo) }
+    @State private var showStages = false
     private var live: Bool { store.caseHealth?.demos[spec.demo]?.live == true }
     private var review: CaseReview { store.caseReviews[spec.demo] ?? CaseReview(demo: spec.demo) }
     private var running: Bool { store.runningCase == spec.demo }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .top) {
-                Toggle(isOn: Binding(get: { selected }, set: { store.toggleDemo(spec.demo, on: $0) })) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(spec.displayName).font(.callout.bold())
-                        Text(spec.demo).font(.caption).foregroundStyle(.secondary)
-                    }
-                }
-                .toggleStyle(.checkbox)
-                .disabled(store.runningCase != nil)
+            HStack {
+                Text(spec.displayName).font(.callout.bold())
                 Spacer()
                 Text(live ? "Available" : "Offline").font(.caption).foregroundStyle(.secondary)
             }
-            if selected {
-                Text(spec.purpose).font(.caption).foregroundStyle(.secondary)
-                VStack(spacing: 8) {
-                    ForEach(Array(spec.labels.enumerated()), id: \.offset) { i, label in
-                        slot(i, label: label)
-                    }
-                }.disabled(store.runningCase != nil)
+            Text(spec.purpose).font(.caption).foregroundStyle(.secondary)
+            VStack(spacing: 8) {
+                ForEach(Array(spec.labels.enumerated()), id: \.offset) { i, label in
+                    slot(i, label: label)
+                }
+            }.disabled(store.runningCase != nil)
+            Toggle("Include intermediate stages", isOn: Binding(
+                get: { review.includeEvents }, set: { store.setCaseEvents(spec.demo, on: $0) }))
+                .toggleStyle(.checkbox).font(.caption)
+                .help("Request events=1: extraction stages, boxes, transcribed text and server artifact paths, when provided by the case.")
+                .disabled(store.runningCase != nil)
+            HStack {
+                if running {
+                    ProgressView().controlSize(.small)
+                    Button("Stop run") { store.stopCase() }
+                } else {
+                    Button(review.report == nil ? "Run case" : "Run again") { store.runCase(spec.demo) }
+                        .disabled(!live || !review.canRun || store.runningCase != nil)
+                }
+                Spacer()
+                if review.confirmed {
+                    Label("Confirmed", systemImage: "checkmark.circle.fill").font(.caption).foregroundStyle(.green)
+                }
+            }
+            if let message = store.caseMessages[spec.demo] {
+                Text(message).font(.caption).textSelection(.enabled)
+            }
+            if let report = review.report {
+                Divider()
                 HStack {
-                    if running {
-                        ProgressView().controlSize(.small)
-                        Button("Stop run") { store.stopCase() }
-                    } else {
-                        Button(review.report == nil ? "Run case" : "Run again") { store.runCase(spec.demo) }
-                            .disabled(!live || !review.canRun || store.runningCase != nil)
-                    }
+                    Text("Output").font(.subheadline.bold())
                     Spacer()
-                    if review.confirmed {
-                        Label("Confirmed", systemImage: "checkmark.circle.fill").font(.caption).foregroundStyle(.green)
-                    }
+                    Button("Full report…") { fullReport = true }.font(.caption)
                 }
-                if let message = store.caseMessages[spec.demo] {
-                    Text(message).font(.caption).textSelection(.enabled)
-                }
-                if let report = review.report {
-                    Divider()
-                    HStack {
-                        Text("Output").font(.subheadline.bold())
-                        Spacer()
-                        Button("Full report…") { fullReport = true }.font(.caption)
-                    }
-                    Text(report.verdict).font(.caption).textSelection(.enabled)
-                    ScrollView {
-                        Text(report.source(files: review.orderedFiles).text)
+                Text(report.verdict).font(.caption).textSelection(.enabled)
+                Picker("Output view", selection: $showStages) {
+                    Text("Result").tag(false)
+                    Text("Stages (\(report.events.count))").tag(true)
+                }.pickerStyle(.segmented)
+                ScrollView {
+                    if showStages {
+                        if report.events.isEmpty {
+                            Text("No stages returned. Enable intermediate stages and run again.")
+                                .font(.caption).foregroundStyle(.secondary)
+                        } else {
+                            LazyVStack(alignment: .leading, spacing: 8) {
+                                ForEach(Array(report.events.enumerated()), id: \.offset) { i, event in
+                                    DisclosureGroup("\(i + 1). \(event["type"]?.string ?? "Event")") {
+                                        Text(event.pretty).font(.system(.caption, design: .monospaced))
+                                            .textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
+                                    }.font(.caption)
+                                }
+                            }
+                        }
+                    } else {
+                        Text(report.raw["summary"]?.pretty ?? report.raw["problems"]?.pretty ?? "No summary returned.")
                             .font(.system(.caption, design: .monospaced)).textSelection(.enabled)
                             .frame(maxWidth: .infinity, alignment: .leading)
-                    }.frame(height: 210)
-                    Toggle("Reviewed — use this result in the brief", isOn: Binding(
-                        get: { review.confirmed }, set: { store.confirmCase(spec.demo, on: $0) }))
-                        .toggleStyle(.checkbox)
-                        .disabled(!review.canConfirm || store.runningCase != nil)
-                } else {
-                    Text("Fill the required slots to run. Changing any input requires a new run and confirmation.")
-                        .font(.caption).foregroundStyle(.secondary)
-                }
+                    }
+                }.frame(height: 180)
+                Toggle("Reviewed — use this result in the brief", isOn: Binding(
+                    get: { review.confirmed }, set: { store.confirmCase(spec.demo, on: $0) }))
+                    .toggleStyle(.checkbox)
+                    .disabled(!review.canConfirm || store.runningCase != nil)
+            } else {
+                Text("Fill the required slots to run. Changing any input requires a new run and confirmation.")
+                    .font(.caption).foregroundStyle(.secondary)
             }
         }
         .padding(10)
-        .background(RoundedRectangle(cornerRadius: 8).fill(selected ? Color.accentColor.opacity(0.06) : Color.secondary.opacity(0.04)))
-        .overlay(RoundedRectangle(cornerRadius: 8).stroke(selected ? Color.accentColor.opacity(0.4) : Color.clear))
+        .background(RoundedRectangle(cornerRadius: 8).fill(Color.accentColor.opacity(0.04)))
+        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.accentColor.opacity(0.25)))
         .sheet(isPresented: $fullReport) {
             VStack(alignment: .leading) {
                 Text("\(spec.displayName) — full report").font(.headline)
@@ -150,6 +196,16 @@ private struct CaseCard: View {
 }
 
 private extension DemoInputs {
+    var shortName: String {
+        switch demo {
+        case "pdf_match": return "PO check"
+        case "packing": return "Packing"
+        case "logistics": return "RFQ"
+        case "office": return "Office"
+        case "email": return "Email"
+        default: return demo
+        }
+    }
     var displayName: String {
         switch demo {
         case "pdf_match": return "Customer PO verification"

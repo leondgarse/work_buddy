@@ -115,23 +115,45 @@ final class CaseWorkflowTests: XCTestCase {
         XCTAssertEqual(store.briefSources.count, 1)
     }
     @MainActor
-    func testMultipleSelectedCasesNeedIndependentConfirmation() async throws {
+    func testSwitchingCasesKeepsOnlyOneSelectionAndRevokesOldConfirmation() async throws {
         let store = storeWithIssue()
         fillInputs(store)
         finishRun(store, result: try result())
         store.confirmCase("pdf_match", on: true)
         store.toggleDemo("packing", on: true)
+        XCTAssertEqual(store.selectedDemo, "packing")
+        XCTAssertFalse(store.caseReviews["pdf_match"]!.confirmed)
+        XCTAssertTrue(store.confirmedEvidence.isEmpty)
         store.setSlot(0, demo: "packing", url: URL(fileURLWithPath: "/example/packing.pdf"))
-        XCTAssertFalse(store.canGenerate)
         let revision = store.caseReviews["packing"]!.beginRun()
-        XCTAssertFalse(store.caseReviews["packing"]!.receive(try result(), revision: revision), "Reject another case's report")
+        XCTAssertFalse(store.caseReviews["packing"]!.receive(try result(), revision: revision))
         XCTAssertTrue(store.caseReviews["packing"]!.receive(try result(demo: "packing"), revision: revision))
         store.confirmCase("packing", on: true)
         XCTAssertTrue(store.canGenerate)
-        XCTAssertEqual(store.confirmedEvidence.count, 2)
-        store.setSlot(0, demo: "packing", url: nil)
+        XCTAssertEqual(store.confirmedEvidence.map(\.demo), ["packing"])
+        store.toggleDemo("pdf_match", on: true)
+        XCTAssertEqual(store.selectedDemo, "pdf_match")
         XCTAssertFalse(store.canGenerate)
-        XCTAssertTrue(store.caseReviews["pdf_match"]!.confirmed)
+        XCTAssertFalse(store.caseReviews["packing"]!.confirmed)
+        store.clearCaseSelection()
+        XCTAssertNil(store.selectedDemo)
+        XCTAssertTrue(store.canGenerate)
+    }
+
+    @MainActor
+    func testEventOptionRevokesConfirmationAndIsSavedInEvidence() async throws {
+        let store = storeWithIssue()
+        fillInputs(store)
+        XCTAssertTrue(store.caseReviews["pdf_match"]!.includeEvents)
+        finishRun(store, result: try result())
+        store.confirmCase("pdf_match", on: true)
+        XCTAssertTrue(store.confirmedEvidence[0].includeEvents)
+        store.setCaseEvents("pdf_match", on: false)
+        XCTAssertFalse(store.canGenerate)
+        XCTAssertNil(store.caseReviews["pdf_match"]!.report)
+        finishRun(store, result: try result())
+        store.confirmCase("pdf_match", on: true)
+        XCTAssertFalse(store.confirmedEvidence[0].includeEvents)
     }
 
     @MainActor
@@ -160,6 +182,7 @@ final class CaseWorkflowTests: XCTestCase {
             let review = try XCTUnwrap(store.caseReviews["pdf_match"])
             let report = try XCTUnwrap(review.report, store.caseMessages["pdf_match"] ?? "No report")
             XCTAssertFalse(report.inputsIncomplete)
+            XCTAssertFalse(report.events.isEmpty, "The live PDF report must include intermediate stages")
             XCTAssertFalse(store.canGenerate, "Even a live result needs explicit review")
             store.confirmCase("pdf_match", on: true)
             XCTAssertTrue(store.canGenerate)

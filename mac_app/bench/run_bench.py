@@ -53,6 +53,7 @@ def run_one(case, case_dir, cfg):
         cmd += ["--demo-run", case["demo_run"]]
         for path in case.get("demo_files", []):
             cmd += ["--demo-file", str((case_dir / path).resolve())]
+    if case.get("case_events"): cmd += ["--case-events"]
     if case.get("cases_url"): cmd += ["--cases-url", case["cases_url"]]
     cmd += [str((case_dir / p).resolve()) for p in case.get("inputs", [])]
     t0 = time.time()

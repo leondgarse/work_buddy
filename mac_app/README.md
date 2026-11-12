@@ -53,8 +53,9 @@ Claude Code or Antigravity CLI.
 
 1. **Add the reported issue.** Upload the related email/chat exports and screenshots, select the sources
    for this requirement, and add any notes.
-2. **Optionally test a related case.** Tick its checkbox, such as **Customer PO verification (pdf_match)**.
-   Its input slots open immediately. For PO verification provide two PDFs: **A: our quotation** (the
+2. **Optionally test a related case.** The top of the input pane has a three-column, two-row grid:
+   five cases plus **No case**. Only one case can be selected. Tick **PO check (pdf_match)** to expand
+   its upload/review interface. For PO verification provide two PDFs: **A: our quotation** (the
    reference) and **B: customer's PO**. Use Choose, Paste file, drop, or From sources.
 3. Click **Run case** to upload those files and call the API. Review the output directly in the card,
    or open **Full report** for the complete JSON. Replace files and run again as needed. No model is
@@ -64,11 +65,19 @@ Claude Code or Antigravity CLI.
    file, rerunning, or changing the API address clears that confirmation. Bad inputs and execution errors
    cannot be confirmed; a valid failing result can be confirmed as evidence of the issue.
 5. **Generate brief** uses your selected sources and the confirmed results. It does not call the Cases
-   API again. Leave all case checkboxes unchecked to generate from the email/chat sources alone.
+   API again. Choose **No case** to generate from the email/chat sources alone.
 
-Each selected case must have a confirmed result before Generate is enabled. The first case selection
+The selected case must have a confirmed result before Generate is enabled. The first case selection
 defaults to a local model; you can explicitly choose a different model for the brief. Testing sends files
 to the Cases API only; confirmed reports go to the model you select when generating.
+
+**Include intermediate stages** requests `events=1` on the POST and report polling requests. It is
+on by default for `pdf_match` and optional for every other case. The API exposes events across all demos:
+PDF matching includes OCR boxes, transcribed text, image paths and comparison data; logistics and packing
+include matching/check events; office and email expose their question/answer or processing events.
+After the run completes, **Stages** lets you expand each event; **Full report** contains the complete
+JSON. Confirmed event data is included in the brief's sources. Paths in events refer to server artifacts.
+Changing the stage option requires another run and confirmation.
 
 Settings → Cases changes the API base URL (default `http://127.0.0.1:8110`). Uploads use base64 and file
 names, so a remote API can read them through a tunnel. Existing settings migrate without losing
@@ -114,6 +123,7 @@ dist/reqcli --demo-run pdf_match --demo-file /path/A.pdf --demo-file /path/B.pdf
 dist/reqcli --case pdf_match/issues --ocr --dry-run chat.pdf
 ```
 
+`--case-events` includes intermediate events for both recorded and uploaded runs.
 `--case` and `--demo-file` are repeatable. `--cases-url URL` overrides the API setting. With cases,
 provider selection defaults to a configured local model unless `--provider` is explicit. `--cases-only`
 prints JSON reports and returns nonzero on failed runs; it never calls a model. `--dry-run` executes
@@ -133,7 +143,7 @@ python3 bench/run_bench.py --rescore $B/results/<dir>      # re-score saved brie
 
 A benchmark case may also include `"cases": ["pdf_match/issues"]`, or `"demo_run": "pdf_match"`
 and `"demo_files": ["relative/A.pdf", "relative/B.pdf"]`. These paths resolve relative to the case JSON.
-An optional `cases_url` overrides the API URL. Each repetition runs the pipeline again; reports and
+An optional `cases_url` overrides the API URL; `case_events: true` includes intermediate stages. Each repetition runs the pipeline again; reports and
 briefs may contain customer data, so keep benchmark output outside tracked files.
 
 Config syntax: `NAME=provider[|model][|key=value…]` with keys `system`, `extra`, `image_side`, `mode`.

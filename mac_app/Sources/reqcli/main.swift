@@ -10,7 +10,7 @@ var settings = AppSettings.load()
 var providerName: String?, model: String?, vision: VisionMode?, notes = "", dryRun = false
 var extra: String?, systemFile: String?
 var files: [URL] = [], demoFiles: [URL] = []
-var caseIDs: [String] = [], demoRun: String?, strict = false, casesOnly = false
+var caseIDs: [String] = [], demoRun: String?, strict = false, casesOnly = false, caseEvents = false
 func err(_ s: String) { FileHandle.standardError.write((s + "\n").data(using: .utf8)!) }
 func value(_ option: String) -> String {
     guard !args.isEmpty, !args[0].hasPrefix("--") else { err("missing value for \(option)"); exit(2) }
@@ -25,6 +25,7 @@ while !args.isEmpty {
     case "--cases-url": settings.casesBaseURL = value(a)
     case "--strict": strict = true
     case "--cases-only": casesOnly = true
+    case "--case-events": caseEvents = true
     case "--provider": providerName = value(a)
     case "--model": model = value(a)
     case "--images": vision = .images
@@ -37,7 +38,7 @@ while !args.isEmpty {
     case "--image-side": PromptBuilder.imageLongSide = Int(value(a)) ?? 1600
     case "-h", "--help":
         print("usage: reqcli [--provider NAME] [--model ID] [--images|--ocr] [--notes TEXT] [--dry-run] [--extra JSON] [--system FILE] [--image-side PX] FILE...")
-        print("cases: [--case DEMO/ID]... [--demo-run DEMO --demo-file FILE ...] [--cases-url URL] [--strict] [--cases-only]")
+        print("cases: [--case DEMO/ID]... [--demo-run DEMO --demo-file FILE ...] [--cases-url URL] [--strict] [--cases-only] [--case-events]")
         print("--cases-only prints reports without calling a model; --dry-run runs cases and previews the prompt.")
         print("providers: " + settings.providers.map(\.name).joined(separator: ", "))
         exit(0)
@@ -62,12 +63,12 @@ do {
         for key in caseIDs {
             let parts = key.split(separator: "/", omittingEmptySubsequences: false)
             guard parts.count == 2 else { throw CasesError.inputs("--case must be DEMO/ID") }
-            let report = try await api.run(demo: String(parts[0]), id: String(parts[1]), strict: strict) { err("\(key): \($0)") }
+            let report = try await api.run(demo: String(parts[0]), id: String(parts[1]), strict: strict, includeEvents: caseEvents) { err("\(key): \($0)") }
             guard !report.inputsIncomplete else { throw CasesError.inputs(report.verdict) }
             reports.append(report)
         }
         if let demoRun {
-            let report = try await api.run(demo: demoRun, files: demoFiles) { err("\(demoRun): \($0)") }
+            let report = try await api.run(demo: demoRun, files: demoFiles, includeEvents: caseEvents) { err("\(demoRun): \($0)") }
             guard !report.inputsIncomplete else { throw CasesError.inputs(report.verdict) }
             reports.append(report)
         }

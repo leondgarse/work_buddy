@@ -29,9 +29,15 @@ struct ContentView: View {
 
     private var inputPane: some View {
         VStack(spacing: 0) {
+            CasesPanel().padding(12)
+            Divider()
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("1. Add the reported issue").font(.headline)
+                    if store.selectedDemo != nil {
+                        SelectedCasePanel()
+                        Divider()
+                    }
+                    Text("2. Add the reported issue").font(.headline)
                     dropZone.frame(height: 250)
                     HStack {
                         TextField("…or paste file / folder paths", text: $pathText)
@@ -42,8 +48,6 @@ struct ContentView: View {
                     TextEditor(text: $store.notes)
                         .font(.body).frame(height: 70)
                         .overlay(RoundedRectangle(cornerRadius: 6).stroke(.quaternary))
-                    Divider()
-                    CasesPanel()
                 }.padding(12)
             }
             Divider()

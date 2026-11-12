@@ -56,6 +56,9 @@ public struct CaseReport: Decodable {
               let s = raw["status"]?.string else { throw CasesError.invalidResponse }
         run = r; demo = d; status = s
     }
+    public var events: [JSONValue] {
+        if case .array(let events) = raw["events"] { return events }; return []
+    }
     public var terminal: Bool { ["passed", "failed", "error"].contains(status) }
     public var inputsIncomplete: Bool {
         if status == "error" { return true }
@@ -86,6 +89,7 @@ public struct CaseReport: Decodable {
         Summary: \(raw["summary"]?.pretty ?? "null")
         Diff against recording: \(raw["diff"]?.pretty ?? "null")
         Problems: \(raw["problems"]?.pretty ?? "null")
+        \(events.isEmpty ? "" : "Intermediate stages (artifact paths belong to the server, not this Mac):\n" + JSONValue.array(events).pretty)
         \(files.isEmpty ? "" : "Test inputs available on this Mac (in upload order):\n" + files.map { "- \($0.lastPathComponent): \($0.path)" }.joined(separator: "\n"))
         """)
     }
@@ -174,17 +178,17 @@ public struct CasesAPI {
         let detail = try await request(["cases", demo, id])
         return detail["blurb"]?.string ?? detail["case"]?["blurb"]?.string ?? ""
     }
-    public func report(_ run: String) async throws -> CaseReport {
-        try decode(await request(["runs", run]), as: CaseReport.self)
+    public func report(_ run: String, includeEvents: Bool = false) async throws -> CaseReport {
+        try decode(await request(["runs", run], query: includeEvents ? [URLQueryItem(name: "events", value: "1")] : []), as: CaseReport.self)
     }
-    private func finish(_ initial: JSONValue, pollInterval: UInt64, timeout: TimeInterval,
+    private func finish(_ initial: JSONValue, includeEvents: Bool, pollInterval: UInt64, timeout: TimeInterval,
                         progress: @MainActor (String) -> Void) async throws -> CaseReport {
         guard let id = initial["run"]?.string else { throw CasesError.invalidResponse }
         let deadline = Date().addingTimeInterval(timeout)
         var lastStatus = ""
         while true {
             try Task.checkCancellation()
-            let result = try await report(id)
+            let result = try await report(id, includeEvents: includeEvents)
             if result.status != lastStatus {
                 await progress("\(result.status) · run \(id)")
                 lastStatus = result.status
@@ -194,13 +198,13 @@ public struct CasesAPI {
             try await Task.sleep(nanoseconds: pollInterval)
         }
     }
-    public func run(demo: String, id: String, strict: Bool = false, pollInterval: UInt64 = 1_000_000_000,
+    public func run(demo: String, id: String, strict: Bool = false, includeEvents: Bool = false, pollInterval: UInt64 = 1_000_000_000,
                     timeout: TimeInterval = 1800, progress: @MainActor (String) -> Void = { _ in }) async throws -> CaseReport {
         let initial = try await request(["cases", demo, id, "run"], method: "POST", query: [
-            URLQueryItem(name: "wait", value: "0"), URLQueryItem(name: "strict", value: strict ? "1" : "0")], body: Data("{}".utf8))
-        return try await finish(initial, pollInterval: pollInterval, timeout: timeout, progress: progress)
+            URLQueryItem(name: "wait", value: "0"), URLQueryItem(name: "strict", value: strict ? "1" : "0")] + (includeEvents ? [URLQueryItem(name: "events", value: "1")] : []), body: Data("{}".utf8))
+        return try await finish(initial, includeEvents: includeEvents, pollInterval: pollInterval, timeout: timeout, progress: progress)
     }
-    public func run(demo: String, files: [URL], pollInterval: UInt64 = 1_000_000_000,
+    public func run(demo: String, files: [URL], includeEvents: Bool = false, pollInterval: UInt64 = 1_000_000_000,
                     timeout: TimeInterval = 1800, progress: @MainActor (String) -> Void = { _ in }) async throws -> CaseReport {
         guard let spec = DemoInputs.spec(demo) else { throw CasesError.inputs("Unsupported file demo: \(demo)") }
         try spec.validate(files)
@@ -209,7 +213,7 @@ public struct CasesAPI {
         }
         let body = try JSONEncoder().encode(["files": uploads])
         let initial = try await request(["demos", demo, "run"], method: "POST",
-                                        query: [URLQueryItem(name: "wait", value: "0")], body: body)
-        return try await finish(initial, pollInterval: pollInterval, timeout: timeout, progress: progress)
+                                        query: [URLQueryItem(name: "wait", value: "0")] + (includeEvents ? [URLQueryItem(name: "events", value: "1")] : []), body: body)
+        return try await finish(initial, includeEvents: includeEvents, pollInterval: pollInterval, timeout: timeout, progress: progress)
     }
 }

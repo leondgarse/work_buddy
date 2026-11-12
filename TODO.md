@@ -35,8 +35,9 @@ the doc is `~/workspace/case-demos/CASES_API.md`. Endpoints used here:
    - Covers health, listing cases, a recorded run, a custom run, and polling. Always uses `wait=0` and polls,
      since runs can be slow, and polling can be cancelled.
    - Base URL is a setting, default `http://127.0.0.1:8110`. Add the `AppSettings` migration first (see backlog).
-2. **"Cases" panel in the app**, under the sources.
-   - One checkbox per related workflow, such as `pdf_match`, with health shown from `/api/health`.
+2. **"Cases" selector at the top of the app input pane.
+   - Three columns and two rows: five workflows plus No case. Only one case can be selected.
+     The selected case alone expands its uploads and output, with health from `/api/health`.
    - Selecting a case opens its upload slots. Testing is a separate action from generating the brief.
    - **Run case** uploads the customer's inputs, polls the API, and shows the output for review. The user
      can replace files and rerun until the output is ready.
@@ -44,7 +45,10 @@ the doc is `~/workspace/case-demos/CASES_API.md`. Endpoints used here:
      report and never reruns the API. Without a selected case, generation uses the email/chat sources alone.
    - Changing files, rerunning, deselecting a case, or changing the API URL revokes confirmation. Incomplete
      inputs cannot be confirmed. Valid failing results can be confirmed as observations of the issue.
-   - Report sources include status, summary, differences, baseline diff and problems. The prompt treats
+   - Include intermediate stages requests `events=1` on POST and polling GETs. Default on for `pdf_match`,
+     optional for every other case. The API supports events for all demos; the Stages view exposes each
+     returned payload (OCR boxes, text, image paths, checks, matches, answers, etc.) after the run completes.
+   - Report sources include status, summary, differences, baseline diff, problems and requested events. The prompt treats
      these as actual observations from our own system and keeps run IDs for traceability.
 3. **File uploads belong to the selected case.**
    - `pdf_match` shows two required slots: "A: our quotation" and "B: customer's PO".

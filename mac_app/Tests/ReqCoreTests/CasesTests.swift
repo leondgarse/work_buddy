@@ -93,6 +93,36 @@ final class CasesTests: XCTestCase {
         _ = try await api().run(demo: "pdf_match", files: files)
     }
 
+    func testEventsRequestedOnPostAndPollingAcrossFileDemosAndRecordedCases() async throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let a = dir.appendingPathComponent("A.pdf"), b = dir.appendingPathComponent("B.pdf")
+        try Data("reference".utf8).write(to: a); try Data("order".utf8).write(to: b)
+        for demo in DemoInputs.supported.map(\.demo) {
+            var posts = 0, polls = 0
+            StubProtocol.handler = { req in
+                let query = URLComponents(url: req.url!, resolvingAgainstBaseURL: false)!.queryItems ?? []
+                XCTAssertTrue(query.contains(URLQueryItem(name: "events", value: "1")))
+                if req.httpMethod == "POST" {
+                    posts += 1
+                    XCTAssertTrue(query.contains(URLQueryItem(name: "wait", value: "0")))
+                    return (202, [:], Data(#"{"run":"events-run"}"#.utf8))
+                }
+                polls += 1
+                return (200, [:], Data("{\"run\":\"events-run\",\"demo\":\"\(demo)\",\"status\":\"passed\",\"events\":[{\"type\":\"transcribed\",\"text\":\"Example text\"}]}".utf8))
+            }
+            let result = try await api().run(demo: demo, files: demo == "pdf_match" ? [a, b] : [a], includeEvents: true)
+            XCTAssertEqual(result.events.count, 1)
+            XCTAssertTrue(result.source().text.contains("Example text"))
+            XCTAssertTrue(result.source().text.contains("artifact paths belong to the server"))
+            XCTAssertEqual(posts, 1); XCTAssertEqual(polls, 1)
+            let recorded = try await api().run(demo: demo, id: "example", includeEvents: true)
+            XCTAssertEqual(recorded.events.count, 1)
+            XCTAssertEqual(posts, 2); XCTAssertEqual(polls, 2)
+        }
+    }
+
     func testInputsAndReportFraming() throws {
         let bad = try report(#"{"run":"r","demo":"pdf_match","status":"failed","problems":[{"kind":"bad_input"}]}"#)
         XCTAssertTrue(bad.inputsIncomplete)

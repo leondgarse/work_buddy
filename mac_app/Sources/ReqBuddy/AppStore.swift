@@ -47,7 +47,7 @@ final class AppStore: ObservableObject {
     @Published var verifying = false
     private var task: Task<Void, Never>?
     @Published var caseHealth: CasesHealth?
-    @Published var selectedDemos: Set<String> = []
+    @Published private(set) var selectedDemo: String?
     @Published var caseReviews: [String: CaseReview] = [:]
     @Published var caseMessages: [String: String] = [:]
     @Published var casesMessage = ""
@@ -55,20 +55,20 @@ final class AppStore: ObservableObject {
     @Published var caseProviderChosen = false
     @Published var runningCase: String?
     private var caseTask: Task<Void, Never>?
-    var hasCases: Bool { !selectedDemos.isEmpty }
+    var hasCases: Bool { selectedDemo != nil }
     var confirmedEvidence: [CaseEvidence] {
-        selectedDemos.sorted().compactMap { caseReviews[$0]?.evidence }
+        selectedDemo.flatMap { caseReviews[$0]?.evidence }.map { [$0] } ?? []
     }
     var briefSources: [SourceDoc] { checkedSources + confirmedEvidence.map(\.source) }
     var canGenerate: Bool {
         guard !busy, runningCase == nil, extracting == 0, !checkedSources.isEmpty else { return false }
-        return !hasCases || (caseProviderChosen && selectedDemos.count == confirmedEvidence.count)
+        return !hasCases || (caseProviderChosen && !confirmedEvidence.isEmpty)
     }
     var generationHint: String {
         if checkedSources.isEmpty { return "Add and select the email or chat files for this issue." }
         if runningCase != nil { return "Wait for the case result, then review and confirm it." }
-        if hasCases && selectedDemos.count != confirmedEvidence.count {
-            return "Run each selected case and confirm its output, or uncheck it to skip."
+        if hasCases && confirmedEvidence.isEmpty {
+            return "Run the selected case and confirm its output, or choose No case to skip."
         }
         if hasCases && !caseProviderChosen { return "Choose the model that will receive the confirmed results." }
         return hasCases ? "The brief will use the confirmed results. It will not rerun the cases." : "Cases are optional. Generate from your selected sources."
@@ -85,14 +85,29 @@ final class AppStore: ObservableObject {
 
     func toggleDemo(_ demo: String, on: Bool) {
         guard runningCase == nil, !busy else { return }
-        let wasEmpty = !hasCases
+        guard DemoInputs.spec(demo) != nil else { return }
         if on {
-            selectedDemos.insert(demo)
+            guard selectedDemo != demo else { return }
+            if let previous = selectedDemo { caseReviews[previous]?.confirm(false) }
+            let wasEmpty = !hasCases
+            selectedDemo = demo
             if caseReviews[demo] == nil { caseReviews[demo] = CaseReview(demo: demo) }
             if wasEmpty { preferLocalForCases() }
-        } else {
-            selectedDemos.remove(demo)
+        } else if selectedDemo == demo {
+            selectedDemo = nil
             caseReviews[demo]?.confirm(false)
+        }
+    }
+
+    func clearCaseSelection() {
+        if let demo = selectedDemo { toggleDemo(demo, on: false) }
+    }
+
+    func setCaseEvents(_ demo: String, on: Bool) {
+        guard runningCase == nil, !busy else { return }
+        if caseReviews[demo]?.includeEvents != on {
+            caseReviews[demo]?.setIncludeEvents(on)
+            caseMessages[demo] = "Stage option changed. Run again and review the new output."
         }
     }
 
@@ -137,15 +152,16 @@ final class AppStore: ObservableObject {
     func confirmCase(_ demo: String, on: Bool) { caseReviews[demo]?.confirm(on) }
 
     func runCase(_ demo: String) {
-        guard !busy, runningCase == nil, selectedDemos.contains(demo),
+        guard !busy, runningCase == nil, selectedDemo == demo,
               caseHealth?.demos[demo]?.live == true, caseReviews[demo]?.canRun == true,
               let revision = caseReviews[demo]?.beginRun() else { return }
         let files = caseReviews[demo]!.orderedFiles, address = settings.casesBaseURL
+        let includeEvents = caseReviews[demo]!.includeEvents
         runningCase = demo; caseMessages[demo] = "Uploading and running…"
         caseTask = Task {
             defer { runningCase = nil }
             do {
-                let report = try await CasesAPI(baseURL: address).run(demo: demo, files: files) {
+                let report = try await CasesAPI(baseURL: address).run(demo: demo, files: files, includeEvents: includeEvents) {
                     self.caseMessages[demo] = $0
                 }
                 try Task.checkCancellation()
@@ -172,7 +188,7 @@ final class AppStore: ObservableObject {
                 var results: [CaseReport] = []
                 for evidence in brief.caseEvidence {
                     status = "Verifying \(evidence.demo) uploads…"
-                    results.append(try await api.run(demo: evidence.demo, files: evidence.files))
+                    results.append(try await api.run(demo: evidence.demo, files: evidence.files, includeEvents: evidence.includeEvents))
                 }
                 if let index = briefs.firstIndex(where: { $0.id == brief.id }) {
                     briefs[index].verificationVerdict = results.contains { $0.inputsIncomplete } ? "inputs incomplete"
