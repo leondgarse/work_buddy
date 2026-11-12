@@ -53,7 +53,7 @@ Claude Code or Antigravity CLI.
 
 1. **Add the reported issue.** Upload the related email/chat exports and screenshots, select the sources
    for this requirement, and add any notes.
-2. **Optionally test a related case.** The top of the input pane has a three-column, two-row grid:
+2. **Optionally test a related case.** Below **Add the reported issue**, a single row contains six choices:
    five cases plus **No case**. Only one case can be selected. Tick **PO check (pdf_match)** to expand
    its upload/review interface. For PO verification provide two PDFs: **A: our quotation** (the
    reference) and **B: customer's PO**. Use Choose, Paste file, drop, or From sources.

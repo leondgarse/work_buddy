@@ -35,8 +35,8 @@ the doc is `~/workspace/case-demos/CASES_API.md`. Endpoints used here:
    - Covers health, listing cases, a recorded run, a custom run, and polling. Always uses `wait=0` and polls,
      since runs can be slow, and polling can be cancelled.
    - Base URL is a setting, default `http://127.0.0.1:8110`. Add the `AppSettings` migration first (see backlog).
-2. **"Cases" selector at the top of the app input pane.
-   - Three columns and two rows: five workflows plus No case. Only one case can be selected.
+2. **"Cases" selector after Add the reported issue.
+   - One row of six choices: five workflows plus No case. Only one case can be selected.
      The selected case alone expands its uploads and output, with health from `/api/health`.
    - Selecting a case opens its upload slots. Testing is a separate action from generating the brief.
    - **Run case** uploads the customer's inputs, polls the API, and shows the output for review. The user

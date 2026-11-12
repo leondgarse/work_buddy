@@ -9,7 +9,7 @@ struct CasesPanel: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Text("1. Related case").font(.headline)
+                Text("2. Related case").font(.headline)
                 Text("Optional · select one").font(.caption).foregroundStyle(.secondary)
                 Spacer()
                 Button { Task { await store.refreshCases() } } label: {
@@ -17,7 +17,7 @@ struct CasesPanel: View {
                 }.help("Refresh availability").disabled(store.loadingCases || store.runningCase != nil)
                 if store.loadingCases { ProgressView().controlSize(.small) }
             }
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 3), spacing: 6) {
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(minimum: 0), spacing: 6), count: 6), spacing: 6) {
                 ForEach(DemoInputs.supported, id: \.demo) { spec in
                     choice(spec.shortName, detail: spec.demo, selected: store.selectedDemo == spec.demo) {
                         store.toggleDemo(spec.demo, on: $0)
@@ -37,15 +37,14 @@ struct CasesPanel: View {
 
     private func choice(_ title: String, detail: String, selected: Bool,
                         onChange: @escaping (Bool) -> Void) -> some View {
-        Toggle(isOn: Binding(get: { selected }, set: onChange)) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.caption.bold()).lineLimit(1)
-                Text(detail).font(.system(size: 10)).foregroundStyle(.secondary).lineLimit(1)
-            }
+        VStack(spacing: 4) {
+            Toggle(title, isOn: Binding(get: { selected }, set: onChange))
+                .labelsHidden().toggleStyle(.checkbox)
+            Text(title).font(.caption).lineLimit(1).minimumScaleFactor(0.75)
+                .onTapGesture { onChange(!selected) }
         }
-        .toggleStyle(.checkbox)
-        .frame(maxWidth: .infinity, minHeight: 38, alignment: .leading)
-        .padding(6)
+        .frame(maxWidth: .infinity, minHeight: 44)
+        .padding(.vertical, 6)
         .background(RoundedRectangle(cornerRadius: 6).fill(selected ? Color.accentColor.opacity(0.12) : Color.secondary.opacity(0.05)))
         .help(detail)
     }
