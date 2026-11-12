@@ -6,6 +6,7 @@ struct SettingsView: View {
         TabView {
             ProvidersTab().tabItem { Label("Models", systemImage: "cpu") }
             PeopleTab().tabItem { Label("People", systemImage: "person.2") }
+            CasesSettingsTab().tabItem { Label("Cases", systemImage: "checklist") }
             PromptTab().tabItem { Label("Prompt", systemImage: "text.quote") }
         }
         .frame(width: 720, height: 500)
@@ -164,5 +165,17 @@ struct PromptTab: View {
             }
         }
         .padding()
+    }
+}
+
+struct CasesSettingsTab: View {
+    @EnvironmentObject var store: AppStore
+    var body: some View {
+        Form {
+            TextField("Cases API base URL", text: $store.settings.casesBaseURL)
+            Text("Default: http://127.0.0.1:8110. Forward this port when the API runs on another machine. Files are uploaded with their names; local paths are never sent as server paths.")
+                .font(.caption).foregroundStyle(.secondary)
+            Button("Refresh cases") { Task { await store.refreshCases() } }
+        }.padding()
     }
 }

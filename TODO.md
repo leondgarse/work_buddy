@@ -2,6 +2,11 @@
 
 ## ReqBuddy: run cases through our own system
 
+**Implemented:** settings migration, CasesAPI client, app panel and named upload slots, report sources,
+strict recorded-case verification, CLI options, and benchmark inputs. Usage: `mac_app/README.md`.
+Custom uploads rerun without a recorded baseline; retail custom video/question inputs and automatic
+API-provided input schemas remain future work. The design below records the intended behavior.
+
 Once a local model writes good enough briefs, ReqBuddy should also get **actual results from our system**,
 not just what testers report in screenshots.
 
@@ -24,7 +29,7 @@ the doc is `~/workspace/case-demos/CASES_API.md`. Endpoints used here:
 - The API and its files run on the GPU box (case inputs are server paths, tunneled to this Mac), so a file
   from the Mac must be **uploaded as base64 with a name**; the suffix picks the reader. A Mac path won't work.
 
-**Plan:**
+**Implemented design:**
 
 1. **`CasesAPI` client in `ReqCore`.**
    - Covers health, listing cases, a recorded run, a custom run, and polling. Always uses `wait=0` and polls,
@@ -79,6 +84,4 @@ the doc is `~/workspace/case-demos/CASES_API.md`. Endpoints used here:
   contract total instead of the quotation import it was about.
 - **Add benchmark cases once implemented:** the quotation email (with its notes) and the second PackingList
   chat.
-- **`AppSettings` migration:** a custom `init(from:)` using `decodeIfPresent`, needed before adding any stored
-  field (cases base URL, target agent, …). Without it, existing settings fall back to defaults.
 - **Drag messages straight from Mail.app** (file promises) instead of "Save As… .rtfd".

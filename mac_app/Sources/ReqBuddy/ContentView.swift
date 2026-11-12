@@ -28,6 +28,7 @@ struct ContentView: View {
     // MARK: input
 
     private var inputPane: some View {
+        ScrollView {
         VStack(alignment: .leading, spacing: 10) {
             dropZone
             HStack {
@@ -35,6 +36,7 @@ struct ContentView: View {
                     .onSubmit { store.addPaths(pathText); pathText = "" }
                 Button("Add") { store.addPaths(pathText); pathText = "" }.disabled(pathText.isEmpty)
             }
+            CasesPanel()
             Text("My notes (override the sources, e.g. \"2 is by design\")").font(.caption).foregroundStyle(.secondary)
             TextEditor(text: $store.notes)
                 .font(.body).frame(height: 70)
@@ -43,7 +45,7 @@ struct ContentView: View {
             HStack {
                 Picker("Model", selection: Binding(
                     get: { store.settings.selectedProviderID ?? store.settings.providers.first?.id },
-                    set: { store.settings.selectedProviderID = $0 })) {
+                    set: { store.settings.selectedProviderID = $0; store.caseProviderChosen = true })) {
                     ForEach(store.settings.providers) { p in Text(p.name).tag(Optional(p.id)) }
                 }
                 SettingsLink { Image(systemName: "gearshape") }.help("Providers, people & prompt")
@@ -62,12 +64,13 @@ struct ContentView: View {
                     Button(n == store.sources.count || n == 0 ? "Generate brief" : "Generate brief from \(n)") { store.generate() }
                         .keyboardShortcut(.return, modifiers: .command)
                         .buttonStyle(.borderedProminent)
-                        .disabled(n == 0 || store.extracting > 0)
+                        .disabled(!store.canGenerate)
                         .help("One requirement brief from the ticked sources")
                 }
             }
         }
         .padding(12)
+        }
     }
 
     private var dropZone: some View {
@@ -154,6 +157,13 @@ struct ContentView: View {
             }
             .padding(10)
             if !store.briefs.isEmpty { briefTabs }
+            if let i = store.currentIndex, !store.briefs[i].caseRuns.isEmpty {
+                HStack {
+                    Button("Verify after fix") { store.verifyCurrentBrief() }.disabled(store.busy)
+                    Text(store.briefs[i].verification.isEmpty ? "Recorded cases rerun with strict comparison." : store.briefs[i].verification)
+                        .font(.caption).textSelection(.enabled)
+                }.padding(8)
+            }
             Divider()
             TextEditor(text: editorText)
                 .font(.system(.body, design: .monospaced))
@@ -172,9 +182,9 @@ struct ContentView: View {
     /// Live stream while generating, otherwise the selected brief (editable).
     private var editorText: Binding<String> {
         Binding(
-            get: { store.busy ? store.output : store.currentBrief },
+            get: { store.busy && !store.verifying ? store.output : store.currentBrief },
             set: { v in
-                if store.busy { store.output = v }
+                if store.busy && !store.verifying { store.output = v }
                 else if let i = store.currentIndex { store.briefs[i].text = v }
             })
     }
@@ -183,9 +193,9 @@ struct ContentView: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 6) {
                 ForEach(Array(store.briefs.enumerated()), id: \.element.id) { i, b in
-                    let on = b.id == store.selectedBrief && !store.busy
+                    let on = b.id == store.selectedBrief && (!store.busy || store.verifying)
                     HStack(spacing: 4) {
-                        Text("\(i + 1). \(b.title)").lineLimit(1).frame(maxWidth: 220)
+                        Text("\(i + 1). \(b.title)" + (b.verification.isEmpty ? "" : " · " + b.verificationVerdict)).lineLimit(1).frame(maxWidth: 220)
                         Button { store.closeBrief(b.id) } label: { Image(systemName: "xmark").font(.caption2) }
                             .buttonStyle(.borderless).help("Close this brief")
                     }
@@ -195,7 +205,7 @@ struct ContentView: View {
                     .onTapGesture { store.selectedBrief = b.id }
                     .help(b.title)
                 }
-                if store.busy {
+                if store.busy && !store.verifying {
                     Text("\(store.briefs.count + 1). generating…").foregroundStyle(.secondary)
                         .padding(.horizontal, 8).padding(.vertical, 4)
                         .background(RoundedRectangle(cornerRadius: 6).fill(Color.accentColor.opacity(0.18)))
@@ -210,6 +220,7 @@ struct ContentView: View {
 private struct PreviewText: Identifiable { let text: String; var id: String { text } }
 
 struct SourceRow: View {
+    @State private var showReport = false
     let doc: SourceDoc
     let checked: Bool
     let usedIn: [Int]
@@ -218,6 +229,7 @@ struct SourceRow: View {
 
     var icon: String {
         switch doc.kind {
+        case "case report": return "checklist"
         case "email": return "envelope"
         case "pdf": return "doc.richtext"
         case "chat": return "bubble.left.and.bubble.right"
@@ -241,13 +253,26 @@ struct SourceRow: View {
                 }.font(.caption).foregroundStyle(.secondary)
             }
             Spacer()
+            if doc.kind == "case report" {
+                Button("Report") { showReport = true }.buttonStyle(.borderless)
+            }
             Button(action: onRemove) { Image(systemName: "xmark.circle.fill") }
                 .buttonStyle(.borderless).foregroundStyle(.secondary).help("Remove")
         }
         .opacity(checked ? 1 : 0.55)
         .contentShape(Rectangle())
         .onTapGesture(perform: onToggle)
-        .help(doc.url.path)
+        .help(doc.kind == "case report" ? "Actual output of our system" : doc.url.path)
+        .sheet(isPresented: $showReport) {
+            VStack(alignment: .leading) {
+                Text("Case report").font(.headline)
+                ScrollView {
+                    Text(doc.text).font(.system(.caption, design: .monospaced)).textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                HStack { Spacer(); Button("Close") { showReport = false }.keyboardShortcut(.cancelAction) }
+            }.padding().frame(width: 720, height: 540)
+        }
     }
 }
 

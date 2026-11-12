@@ -21,6 +21,9 @@ public struct SourceDoc: Identifiable {
     public var images: [ExtractedImage]
     /// Text found by OCR in page renders that the PDF text layer doesn't contain (PDF only).
     public var extraOCR: [String: String] = [:]
+    public init(url: URL, kind: String, text: String, images: [ExtractedImage] = [], extraOCR: [String: String] = [:]) {
+        self.url = url; self.kind = kind; self.text = text; self.images = images; self.extraOCR = extraOCR
+    }
     /// Email or chat export: it describes the request but is never a file to test with.
     public var isConversation: Bool { kind == "email" || kind == "chat" }
 }

@@ -10,6 +10,7 @@ let package = Package(
     ],
     targets: [
         .target(name: "ReqCore"),
+        .testTarget(name: "ReqCoreTests", dependencies: ["ReqCore"]),
         .executableTarget(name: "ReqBuddy", dependencies: ["ReqCore"]),
         .executableTarget(name: "reqcli", dependencies: ["ReqCore"]),
     ]

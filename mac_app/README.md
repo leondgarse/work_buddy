@@ -49,6 +49,31 @@ Claude Code or Antigravity CLI.
 - **My notes** override the sources: items the notes call by design, already handled, or not
   needed are dropped.
 
+## Cases: actual results from our system
+
+Expand **Cases** below the sources, then Refresh to list recorded cases grouped by demo. Offline
+backends are greyed out. Tick cases to run them before Generate builds the brief. The first selection
+defaults to a local model; you can explicitly select a different model. Reports go only to that model.
+Settings → Cases changes the API base URL (default `http://127.0.0.1:8110`). Existing settings migrate
+without losing providers, People or the customized prompt.
+
+Choose **Run my files → pdf_match** to compare your own documents. Fill **A: our quotation** and
+**B: customer's PO**, in that order, using Choose, Paste (copied file or path), drop, or Use a source
+file. Both PDFs are required. Other file demos use the slot counts shown in the panel. Uploads send
+base64 plus the file name, so the API can run remotely through a tunnel; Mac paths are not server paths.
+Retail's video/question inputs are available through recorded cases only.
+
+Generate uses asynchronous runs and cancellable polling. Stop ends polling; the server run may still
+finish. Each valid report becomes a source with status, summary, differences, baseline diff and problems.
+Bad inputs or execution errors stop generation and request input checks. Deliberate negative cases can
+contain differences and still match their recording, so the UI shows both the status and baseline match.
+The brief keeps run IDs and the local upload paths for traceability.
+
+After implementing the brief, **Verify after fix** reruns its recorded cases with `strict=1` and shows
+the verdict on its tab. Uploaded files rerun too, but custom runs have no recorded baseline: a passed
+execution does not establish that all document differences have been fixed. Review its report source.
+Briefs and upload selections live in memory for the current app session.
+
 ## Build
 
 ```bash
@@ -75,6 +100,20 @@ dist/reqcli --print-system                                    # the built-in pro
 dist/reqcli --system v2.txt --extra '{"temperature":0.3}' --image-side 2400 chat.pdf   # A/B knobs
 ```
 
+Run cases without a model, or add their reports to a brief:
+
+```bash
+dist/reqcli --case pdf_match/agree --case pdf_match/issues --cases-only
+dist/reqcli --case pdf_match/issues --strict --cases-only
+dist/reqcli --demo-run pdf_match --demo-file /path/A.pdf --demo-file /path/B.pdf --cases-only
+dist/reqcli --case pdf_match/issues --ocr --dry-run chat.pdf
+```
+
+`--case` and `--demo-file` are repeatable. `--cases-url URL` overrides the API setting. With cases,
+provider selection defaults to a configured local model unless `--provider` is explicit. `--cases-only`
+prints JSON reports and returns nonzero on failed runs; it never calls a model. `--dry-run` executes
+cases and previews the resulting user prompt without requesting a brief.
+
 ## Benchmark
 
 `bench/run_bench.py` runs `reqcli` over cases × model configs and scores each brief with the case's
@@ -86,6 +125,11 @@ B=../requirement_example/bench
 python3 bench/run_bench.py -n 2 -c "gem=Gemini" -c "35b=MICL Qwen3.6 :18010||system=$B/prompts/v4.txt"
 python3 bench/run_bench.py --rescore $B/results/<dir>      # re-score saved briefs after editing checks
 ```
+
+A benchmark case may also include `"cases": ["pdf_match/issues"]`, or `"demo_run": "pdf_match"`
+and `"demo_files": ["relative/A.pdf", "relative/B.pdf"]`. These paths resolve relative to the case JSON.
+An optional `cases_url` overrides the API URL. Each repetition runs the pipeline again; reports and
+briefs may contain customer data, so keep benchmark output outside tracked files.
 
 Config syntax: `NAME=provider[|model][|key=value…]` with keys `system`, `extra`, `image_side`, `mode`.
 

@@ -57,6 +57,33 @@ public struct AppSettings: Codable {
     /// Empty = use `PromptBuilder.defaultSystemPrompt`.
     public var systemPrompt: String
     public var maxImages: Int
+    public var casesBaseURL: String = "http://127.0.0.1:8110"
+
+    private enum CodingKeys: String, CodingKey {
+        case providers, selectedProviderID, people, systemPrompt, maxImages, casesBaseURL
+    }
+
+    public init(providers: [Provider], selectedProviderID: UUID?, people: [Person],
+                systemPrompt: String, maxImages: Int, casesBaseURL: String = "http://127.0.0.1:8110") {
+        self.providers = providers; self.selectedProviderID = selectedProviderID; self.people = people
+        self.systemPrompt = systemPrompt; self.maxImages = maxImages; self.casesBaseURL = casesBaseURL
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        let d = Self.defaults
+        providers = try c.decodeIfPresent([Provider].self, forKey: .providers) ?? d.providers
+        selectedProviderID = try c.decodeIfPresent(UUID.self, forKey: .selectedProviderID)
+        people = try c.decodeIfPresent([Person].self, forKey: .people) ?? d.people
+        systemPrompt = try c.decodeIfPresent(String.self, forKey: .systemPrompt) ?? d.systemPrompt
+        maxImages = try c.decodeIfPresent(Int.self, forKey: .maxImages) ?? d.maxImages
+        casesBaseURL = try c.decodeIfPresent(String.self, forKey: .casesBaseURL) ?? d.casesBaseURL
+    }
+
+    public static func isLocal(_ provider: Provider) -> Bool {
+        guard let host = URL(string: provider.baseURL)?.host?.lowercased() else { return false }
+        return ["localhost", "127.0.0.1", "::1", "[::1]"].contains(host)
+    }
 
     public var selectedProvider: Provider? {
         providers.first { $0.id == selectedProviderID } ?? providers.first

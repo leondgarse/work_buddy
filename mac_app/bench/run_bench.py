@@ -48,7 +48,13 @@ def run_one(case, case_dir, cfg):
     if cfg.get("mode") == "ocr": cmd += ["--ocr"]
     if cfg.get("mode") == "images": cmd += ["--images"]
     if case.get("notes"): cmd += ["--notes", case["notes"]]
-    cmd += [str((case_dir / p).resolve()) for p in case["inputs"]]
+    for case_id in case.get("cases", []): cmd += ["--case", case_id]
+    if case.get("demo_run"):
+        cmd += ["--demo-run", case["demo_run"]]
+        for path in case.get("demo_files", []):
+            cmd += ["--demo-file", str((case_dir / path).resolve())]
+    if case.get("cases_url"): cmd += ["--cases-url", case["cases_url"]]
+    cmd += [str((case_dir / p).resolve()) for p in case.get("inputs", [])]
     t0 = time.time()
     p = subprocess.run(cmd, capture_output=True, text=True)
     return p.stdout.strip(), p.stderr, time.time() - t0, p.returncode

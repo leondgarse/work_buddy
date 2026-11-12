@@ -6,6 +6,13 @@ struct Brief: Identifiable {
     let id = UUID()
     var text: String
     var sourceIDs: [SourceDoc.ID]
+    var caseRuns: [CaseReport] = []
+    var caseSelection: [RecordedCase] = []
+    var demo: String = ""
+    var demoFiles: [URL] = []
+    var casesBaseURL: String = ""
+    var verification = ""
+    var verificationVerdict = ""
     var title: String { PromptBuilder.title(of: text) }
 }
 
@@ -25,7 +32,136 @@ final class AppStore: ObservableObject {
     @Published var busy = false
     @Published var extracting = 0
     @Published var reasoningChars = 0
+    @Published var verifying = false
     private var task: Task<Void, Never>?
+    @Published var availableCases: [RecordedCase] = []
+    @Published var caseHealth: CasesHealth?
+    @Published var selectedCases: Set<String> = []
+    @Published var caseBlurbs: [String: String] = [:]
+    @Published var caseStatuses: [String: String] = [:]
+    @Published var casesMessage = ""
+    @Published var loadingCases = false
+    @Published var caseProviderChosen = false
+    @Published var selectedDemo = ""
+    @Published var demoFiles: [Int: URL] = [:]
+    @Published var activeSlot: Int?
+    var hasCases: Bool { !selectedCases.isEmpty || !selectedDemo.isEmpty }
+    var customFiles: [URL] { demoFiles.sorted { $0.key < $1.key }.map(\.value) }
+    var canGenerate: Bool {
+        guard !busy, extracting == 0, !checkedSources.isEmpty || hasCases else { return false }
+        if hasCases && !caseProviderChosen { return false }
+        guard !selectedCases.contains(where: { key in
+            guard let c = availableCases.first(where: { $0.key == key }) else { return true }
+            return !caseIsLive(c)
+        }) else { return false }
+        if !selectedDemo.isEmpty {
+            guard caseHealth?.demos[selectedDemo]?.live == true,
+                  let spec = DemoInputs.spec(selectedDemo),
+                  (0..<spec.minimum).allSatisfy({ demoFiles[$0] != nil }),
+                  (try? spec.validate(customFiles)) != nil else { return false }
+        }
+        return true
+    }
+
+    func caseIsLive(_ c: RecordedCase) -> Bool { c.live && caseHealth?.demos[c.demo]?.live == true }
+
+    func preferLocalForCases() {
+        if let p = settings.providers.first(where: AppSettings.isLocal) {
+            settings.selectedProviderID = p.id; caseProviderChosen = true
+        } else {
+            caseProviderChosen = false
+            casesMessage = "No local model configured. Choose a model explicitly to send case reports."
+        }
+    }
+
+    func toggleCase(_ c: RecordedCase, on: Bool) {
+        let wasEmpty = !hasCases
+        if on { selectedCases.insert(c.key) } else { selectedCases.remove(c.key) }
+        if on && wasEmpty { preferLocalForCases() }
+    }
+
+    func chooseDemo(_ demo: String) {
+        let wasEmpty = !hasCases
+        selectedDemo = demo; demoFiles = [:]; activeSlot = nil
+        if !demo.isEmpty && wasEmpty { preferLocalForCases() }
+    }
+
+    func refreshCases() async {
+        guard !loadingCases else { return }
+        loadingCases = true
+        defer { loadingCases = false }
+        do {
+            let api = try CasesAPI(baseURL: settings.casesBaseURL)
+            async let health = api.health()
+            async let cases = api.cases()
+            (caseHealth, availableCases) = try await (health, cases)
+            casesMessage = ""
+            for c in availableCases {
+                caseBlurbs[c.key] = (try? await api.blurb(demo: c.demo, id: c.id)) ?? c.title
+            }
+        } catch {
+            caseHealth = nil; casesMessage = error.localizedDescription
+        }
+    }
+
+    func setSlot(_ i: Int, url: URL) {
+        demoFiles[i] = url; activeSlot = i
+    }
+
+    func pickSlot(_ i: Int) {
+        let panel = NSOpenPanel(); panel.allowsMultipleSelection = false
+        if selectedDemo == "pdf_match" { panel.allowedContentTypes = [.pdf] }
+        if panel.runModal() == .OK, let url = panel.url { setSlot(i, url: url) }
+    }
+
+    @discardableResult
+    func pasteSlot(_ i: Int) -> Bool {
+        if let urls = NSPasteboard.general.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL],
+           let url = urls.first { setSlot(i, url: url); return true }
+        else if let text = NSPasteboard.general.string(forType: .string) {
+            let path = (text.trimmingCharacters(in: .whitespacesAndNewlines) as NSString).expandingTildeInPath
+            if FileManager.default.fileExists(atPath: path) { setSlot(i, url: URL(fileURLWithPath: path)); return true }
+        }
+        return false
+    }
+
+    func verifyCurrentBrief() {
+        guard let i = currentIndex, !busy else { return }
+        let brief = briefs[i]
+        guard !brief.caseRuns.isEmpty else { return }
+        busy = true; verifying = true
+        task = Task {
+            defer { busy = false; verifying = false }
+            do {
+                let api = try CasesAPI(baseURL: brief.casesBaseURL)
+                var results: [CaseReport] = []
+                for c in brief.caseSelection {
+                    status = "Verifying \(c.key)…"
+                    results.append(try await api.run(demo: c.demo, id: c.id, strict: true))
+                }
+                if !brief.demo.isEmpty {
+                    status = "Verifying \(brief.demo) uploads (custom inputs have no strict recording)…"
+                    results.append(try await api.run(demo: brief.demo, files: brief.demoFiles))
+                }
+                if let index = briefs.firstIndex(where: { $0.id == brief.id }) {
+                    briefs[index].verificationVerdict = results.contains { $0.inputsIncomplete } ? "inputs incomplete"
+                        : results.allSatisfy { $0.status == "passed" } ? "passed" : "failed"
+                    briefs[index].verification = results.map { "\($0.label): \($0.verdict)" }.joined(separator: "\n")
+                    let observations = results.filter { !$0.inputsIncomplete }.map { $0.source(files: $0.raw["case"]?.string == nil ? brief.demoFiles : []) }
+                    sources.append(contentsOf: observations)
+                    briefs[index].sourceIDs += observations.map(\.id)
+                    briefs[index].text += "\n\n## Verification runs\n" + results.map { "- \($0.label): \($0.verdict)" }.joined(separator: "\n")
+                }
+                status = "Verification finished."
+            } catch {
+                status = Task.isCancelled ? "Verification stopped. The server run may still finish." : error.localizedDescription
+                if let index = briefs.firstIndex(where: { $0.id == brief.id }) {
+                    briefs[index].verification = status
+                    briefs[index].verificationVerdict = Task.isCancelled ? "stopped" : "error"
+                }
+            }
+        }
+    }
 
     var provider: Provider? { settings.selectedProvider }
     var checkedSources: [SourceDoc] { sources.filter { checked.contains($0.id) } }
@@ -87,14 +223,16 @@ final class AppStore: ObservableObject {
         let client = LLMClient(provider: p, apiKey: APIKeys.resolve(for: p))
         let vision = await client.resolveVision()
         let b = PromptBuilder.build(docs: checkedSources, settings: settings, notes: notes, sendImages: vision)
-        let sys = settings.systemPrompt.isEmpty ? PromptBuilder.defaultSystemPrompt : settings.systemPrompt
+        let sys = b.messages.first?.parts.compactMap { if case .text(let t) = $0 { return t }; return nil }.joined() ?? ""
         return "### SYSTEM\n\(sys)\n\n### USER\n\(b.preview)"
     }
 
     /// One request for the ticked sources -> one new brief tab.
     func generate() {
-        let docs = checkedSources
-        guard let p = provider, !docs.isEmpty, !busy else { return }
+        var docs = checkedSources
+        guard let p = provider, canGenerate else { return }
+        let cases = availableCases.filter { selectedCases.contains($0.key) }
+        let demo = selectedDemo, uploads = customFiles
         busy = true
         output = ""
         reasoningChars = 0
@@ -102,6 +240,33 @@ final class AppStore: ObservableObject {
         let settings = settings, notes = notes
         task = Task {
             defer { busy = false }
+            var reports: [CaseReport] = []
+            do {
+                let api = cases.isEmpty && demo.isEmpty ? nil : try CasesAPI(baseURL: settings.casesBaseURL)
+                for c in cases {
+                    status = "Running \(c.key)…"
+                    let report = try await api!.run(demo: c.demo, id: c.id) { self.caseStatuses[c.key] = $0 }
+                    caseStatuses[c.key] = report.verdict
+                    guard !report.inputsIncomplete else { throw CasesError.inputs(report.verdict) }
+                    reports.append(report)
+                }
+                if !demo.isEmpty {
+                    status = "Running \(demo) with uploaded files…"
+                    let report = try await api!.run(demo: demo, files: uploads) { self.caseStatuses[demo] = $0 }
+                    caseStatuses[demo] = report.verdict
+                    guard !report.inputsIncomplete else { throw CasesError.inputs(report.verdict) }
+                    reports.append(report)
+                }
+                try Task.checkCancellation()
+                let reportDocs = reports.enumerated().map { i, report in
+                    report.source(files: i == cases.count && !demo.isEmpty ? uploads : [])
+                }
+                sources.append(contentsOf: reportDocs)
+                docs += reportDocs
+            } catch {
+                status = Task.isCancelled ? "Stopped polling. The server run may still finish." : error.localizedDescription
+                return
+            }
             let key = await Task.detached { APIKeys.resolve(for: p) }.value
             if key == nil && !p.baseURL.contains("localhost") && !p.baseURL.contains("127.0.0.1") {
                 status = LLMError.noKey(p.name).localizedDescription
@@ -136,7 +301,11 @@ final class AppStore: ObservableObject {
             }
             output = ""
             if !text.isEmpty {
-                let b = Brief(text: text, sourceIDs: docs.map(\.id))
+                if !reports.isEmpty {
+                    text += "\n\n## Case runs\n" + reports.map { "- \($0.label): run `\($0.run)` — \($0.verdict)" }.joined(separator: "\n")
+                }
+                let b = Brief(text: text, sourceIDs: docs.map(\.id), caseRuns: reports, caseSelection: cases,
+                              demo: demo, demoFiles: uploads, casesBaseURL: settings.casesBaseURL)
                 briefs.append(b)
                 selectedBrief = b.id
             }
@@ -197,6 +366,7 @@ final class AppStore: ObservableObject {
     /// so normal text paste keeps working.
     @discardableResult
     func pasteFromClipboard() -> Bool {
+        if let slot = activeSlot, !selectedDemo.isEmpty { return pasteSlot(slot) }
         let pb = NSPasteboard.general
         if let urls = pb.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL],
            !urls.isEmpty {
