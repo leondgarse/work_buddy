@@ -2,6 +2,9 @@ import AppKit
 import Foundation
 
 public enum PromptBuilder {
+    /// Long side (px) of images sent to the model. Bigger helps small text in screenshots, costs tokens.
+    nonisolated(unsafe) public static var imageLongSide = 1600
+
     public static let defaultSystemPrompt = """
     You turn business communication (email threads, chat exports, screenshots) into a short task \
     prompt for a coding agent (Claude Code). The agent has the codebase but has never seen these \
@@ -102,7 +105,7 @@ public enum PromptBuilder {
             }
             add(t)
             for im in d.images {
-                guard budget > 0, let url = jpegDataURL(im.image) else { dropped += 1; continue }
+                guard budget > 0, let url = jpegDataURL(im.image, longSide: imageLongSide) else { dropped += 1; continue }
                 budget -= 1; sent += 1
                 add("\n[\(s) \(im.label)]\n")
                 parts.append(.imageDataURL(url))

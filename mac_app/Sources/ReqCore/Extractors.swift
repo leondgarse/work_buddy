@@ -174,7 +174,7 @@ public enum Extractor {
         }.joined(separator: "\n")
     }
 
-    static func render(_ page: PDFPage, longSide: CGFloat = 1800) -> CGImage? {
+    static func render(_ page: PDFPage, longSide: CGFloat = 2400) -> CGImage? {
         let b = page.bounds(for: .mediaBox)
         let scale = min(3.0, longSide / max(b.width, b.height))
         let w = Int(b.width * scale), h = Int(b.height * scale)

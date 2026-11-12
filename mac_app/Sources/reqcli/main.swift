@@ -2,11 +2,13 @@ import Foundation
 import ReqCore
 
 // Headless version of the app's pipeline, sharing its settings file.
-// usage: reqcli [--provider NAME] [--model ID] [--images|--ocr] [--notes TEXT] [--dry-run] FILE...
+// usage: reqcli [--provider NAME] [--model ID] [--images|--ocr] [--notes TEXT] [--dry-run]
+//               [--extra JSON] [--system FILE] [--image-side PX] FILE...
 
 var args = Array(CommandLine.arguments.dropFirst())
 var settings = AppSettings.load()
 var providerName: String?, model: String?, vision: VisionMode?, notes = "", dryRun = false
+var extra: String?, systemFile: String?
 var files: [URL] = []
 while !args.isEmpty {
     let a = args.removeFirst()
@@ -17,8 +19,12 @@ while !args.isEmpty {
     case "--ocr": vision = .ocr
     case "--notes": notes = args.removeFirst()
     case "--dry-run": dryRun = true
+    case "--extra": extra = args.removeFirst()          // JSON merged into the request, e.g. {"temperature":0.3}
+    case "--system": systemFile = args.removeFirst()    // system prompt file (A/B tests)
+    case "--print-system": print(PromptBuilder.defaultSystemPrompt); exit(0)
+    case "--image-side": PromptBuilder.imageLongSide = Int(args.removeFirst()) ?? 1600
     case "-h", "--help":
-        print("usage: reqcli [--provider NAME] [--model ID] [--images|--ocr] [--notes TEXT] [--dry-run] FILE...")
+        print("usage: reqcli [--provider NAME] [--model ID] [--images|--ocr] [--notes TEXT] [--dry-run] [--extra JSON] [--system FILE] [--image-side PX] FILE...")
         print("providers: " + settings.providers.map(\.name).joined(separator: ", "))
         exit(0)
     default: files.append(URL(fileURLWithPath: (a as NSString).expandingTildeInPath))
@@ -31,6 +37,11 @@ guard var provider = providerName.map({ n in settings.providers.first { $0.name.
         ?? settings.selectedProvider else { err("unknown provider"); exit(2) }
 if let model { provider.model = model }
 if let vision { provider.vision = vision }
+if let extra { provider.extraBody = extra }
+if let systemFile {
+    guard let t = try? String(contentsOfFile: systemFile, encoding: .utf8) else { err("cannot read \(systemFile)"); exit(2) }
+    settings.systemPrompt = t
+}
 
 var docs: [SourceDoc] = []
 for u in Extractor.expand(files) {
