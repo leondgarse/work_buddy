@@ -21,6 +21,8 @@ public struct SourceDoc: Identifiable {
     public var images: [ExtractedImage]
     /// Text found by OCR in page renders that the PDF text layer doesn't contain (PDF only).
     public var extraOCR: [String: String] = [:]
+    /// Email or chat export: it describes the request but is never a file to test with.
+    public var isConversation: Bool { kind == "email" || kind == "chat" }
 }
 
 public enum ExtractError: LocalizedError {
@@ -144,7 +146,9 @@ public enum Extractor {
             images.append(ExtractedImage(label: label, path: nil, image: img, ocrText: o))
         }
         if doc.pageCount > maxPages { text += "\n[... \(doc.pageCount - maxPages) more pages omitted]\n" }
-        return SourceDoc(url: url, kind: "pdf", text: clean(text), images: images, extraOCR: extra)
+        // Lark/Feishu chat exports start with "<title>\nTo view more chat history…".
+        let isChat = text.contains("To view more chat history") || text.contains("查看更多聊天记录")
+        return SourceDoc(url: url, kind: isChat ? "chat" : "pdf", text: clean(text), images: images, extraOCR: extra)
     }
 
     /// Rebuild text lines from positioned fragments. Some exporters (Lark) split words at kerning

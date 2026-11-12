@@ -220,6 +220,7 @@ struct SourceRow: View {
         switch doc.kind {
         case "email": return "envelope"
         case "pdf": return "doc.richtext"
+        case "chat": return "bubble.left.and.bubble.right"
         case "image": return "photo"
         default: return "doc.text"
         }

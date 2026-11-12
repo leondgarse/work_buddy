@@ -24,6 +24,9 @@ public enum PromptBuilder {
     language; add a short English gloss in parentheses for non-English text.
     - Resolve visual references (colours, highlights, arrows, "this part") from the images into the \
     exact element or label meant. If you cannot see it, say so instead of guessing.
+    - The agent never sees the images: never mention colours, highlights, boxes or arrows in the \
+    output. Name the exact text, label, column or element instead, quoting it. One mark can cover \
+    several elements; each of them is part of the request.
     - For bugs, give the concrete values observed versus what the source document shows.
     - Separate observations from diagnoses. State as fact only what was seen: errors, values shown, \
     what failed. Anyone's explanation of why (a guess like "可能是…", "看起来是…", "maybe", "probably", \
@@ -39,7 +42,7 @@ public enum PromptBuilder {
     - Only what was asked or marked in the images. Do not add follow-on or related changes nobody \
     requested; the agent decides those from the code.
     - When the asker leaves the solution open ("suggest how to show it"), write "Propose a clearer \
-    way to …", say what is confusing, and ask for the proposal before changing it.
+    way to …", say what is confusing, and end that item with "Share the proposal before changing it."
     - No acceptance criteria, priorities, citations, implementation notes or filler.
     - Screenshots and chat/email exports only describe the request; they are never files to list.
 
@@ -97,11 +100,15 @@ public enum PromptBuilder {
         var sent = 0, dropped = 0
         for (i, d) in docs.enumerated() {
             let s = "S\(i + 1)"
-            var t = "\n### \(s): \(d.kind) - \(d.url.lastPathComponent)\nPath: \(d.url.path)\n"
+            // Conversations describe the request; their file names carry people's names and they are
+            // never test inputs, so they get neither a name nor a path. Other files might be test inputs.
+            var t = d.isConversation
+                ? "\n### \(s): \(d.kind) (describes the request; never list it as a file)\n"
+                : "\n### \(s): \(d.kind) - \(d.url.lastPathComponent)\nPath: \(d.url.path)\n"
             t += "\n" + d.text + "\n"
             if !sendImages {
                 for im in d.images {
-                    if d.kind == "pdf" {
+                    if d.kind == "pdf" || d.kind == "chat" {
                         if let x = d.extraOCR[im.label] { t += "\n[\(s) \(im.label) - text inside pictures (OCR)]\n\(x)\n" }
                     } else if !im.ocrText.isEmpty {
                         t += "\n[\(s) \(im.label) OCR]\n\(im.ocrText)\n"
