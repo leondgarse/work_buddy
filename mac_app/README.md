@@ -17,8 +17,9 @@ coding agent.
   English). The model is told the colours are lost, so it raises an open question instead of guessing.
   Quoted replies that repeat the same attachments are de-duplicated.
 - **Models:** any OpenAI-compatible `/chat/completions` endpoint. Preset providers:
-  - MICL llama-router through the existing tunnel at `http://localhost:8080/v1`. The default model is
-    `Qwen3.6-35B-A3B-Q8_0`, which takes images and is shared with other jobs on the box.
+  - A local llama.cpp server (`http://localhost:18010/v1`, `Qwen3.6-35B-A3B-Q8_0`, takes images)
+  - A local llama-router (`http://localhost:8080/v1`) for other models. Don't ask it for a model
+    that another server already holds, or the GPU box loads two copies.
   - Gemini, using `GEMINI_API_KEY`
   - DeepSeek, using `DEEPSEEK_API_KEY`
 

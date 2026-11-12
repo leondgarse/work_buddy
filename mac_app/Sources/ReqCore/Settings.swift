@@ -63,13 +63,15 @@ public struct AppSettings: Codable {
     }
 
     public static var defaults: AppSettings {
-        let local = Provider(name: "MICL local (llama-router)", baseURL: "http://localhost:8080/v1",
-                             model: "Qwen3.6-35B-A3B-Q8_0", vision: .auto)
+        // The 35B lives on its own llama-server (:18010, sleeps when idle); the router serves the rest.
+        // Never ask the router for a 35B while :18010 holds it: two copies don't fit and OOM the box.
+        let local = Provider(name: "MICL Qwen3.6 :18010", baseURL: "http://localhost:18010/v1",
+                             model: "Qwen3.6-35B-A3B-Q8_0", apiKeyEnv: "QWEN36_API_KEY", vision: .auto)
         return AppSettings(
             providers: [
                 local,
-                Provider(name: "MICL Qwen3.6 :18010", baseURL: "http://localhost:18010/v1",
-                         model: "Qwen3.6-35B-A3B-Q8_0", apiKeyEnv: "QWEN36_API_KEY", vision: .auto),
+                Provider(name: "MICL llama-router", baseURL: "http://localhost:8080/v1",
+                         model: "DavidAU/Qwen3.6-27B-Fable-Fus-711", vision: .auto),
                 Provider(name: "Gemini", baseURL: "https://generativelanguage.googleapis.com/v1beta/openai",
                          model: "gemini-3.8-flash", apiKeyEnv: "GEMINI_API_KEY", vision: .images),
                 Provider(name: "DeepSeek", baseURL: "https://api.deepseek.com/v1",
