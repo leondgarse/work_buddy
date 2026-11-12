@@ -49,30 +49,35 @@ Claude Code or Antigravity CLI.
 - **My notes** override the sources: items the notes call by design, already handled, or not
   needed are dropped.
 
-## Cases: actual results from our system
+## Cases: test and confirm before generating
 
-Expand **Cases** below the sources, then Refresh to list recorded cases grouped by demo. Offline
-backends are greyed out. Tick cases to run them before Generate builds the brief. The first selection
-defaults to a local model; you can explicitly select a different model. Reports go only to that model.
-Settings → Cases changes the API base URL (default `http://127.0.0.1:8110`). Existing settings migrate
-without losing providers, People or the customized prompt.
+1. **Add the reported issue.** Upload the related email/chat exports and screenshots, select the sources
+   for this requirement, and add any notes.
+2. **Optionally test a related case.** Tick its checkbox, such as **Customer PO verification (pdf_match)**.
+   Its input slots open immediately. For PO verification provide two PDFs: **A: our quotation** (the
+   reference) and **B: customer's PO**. Use Choose, Paste file, drop, or From sources.
+3. Click **Run case** to upload those files and call the API. Review the output directly in the card,
+   or open **Full report** for the complete JSON. Replace files and run again as needed. No model is
+   called during testing. Runs use asynchronous polling; Stop run ends polling, while the server may
+   still finish.
+4. Check **Reviewed — use this result in the brief** when the output is ready. Replacing/removing any
+   file, rerunning, or changing the API address clears that confirmation. Bad inputs and execution errors
+   cannot be confirmed; a valid failing result can be confirmed as evidence of the issue.
+5. **Generate brief** uses your selected sources and the confirmed results. It does not call the Cases
+   API again. Leave all case checkboxes unchecked to generate from the email/chat sources alone.
 
-Choose **Run my files → pdf_match** to compare your own documents. Fill **A: our quotation** and
-**B: customer's PO**, in that order, using Choose, Paste (copied file or path), drop, or Use a source
-file. Both PDFs are required. Other file demos use the slot counts shown in the panel. Uploads send
-base64 plus the file name, so the API can run remotely through a tunnel; Mac paths are not server paths.
-Retail's video/question inputs are available through recorded cases only.
+Each selected case must have a confirmed result before Generate is enabled. The first case selection
+defaults to a local model; you can explicitly choose a different model for the brief. Testing sends files
+to the Cases API only; confirmed reports go to the model you select when generating.
 
-Generate uses asynchronous runs and cancellable polling. Stop ends polling; the server run may still
-finish. Each valid report becomes a source with status, summary, differences, baseline diff and problems.
-Bad inputs or execution errors stop generation and request input checks. Deliberate negative cases can
-contain differences and still match their recording, so the UI shows both the status and baseline match.
-The brief keeps run IDs and the local upload paths for traceability.
+Settings → Cases changes the API base URL (default `http://127.0.0.1:8110`). Uploads use base64 and file
+names, so a remote API can read them through a tunnel. Existing settings migrate without losing
+providers, People or a customized prompt. Briefs, uploads and confirmations live in memory for the
+current app session. Recorded fixture cases remain available through the CLI and benchmark.
 
-After implementing the brief, **Verify after fix** reruns its recorded cases with `strict=1` and shows
-the verdict on its tab. Uploaded files rerun too, but custom runs have no recorded baseline: a passed
-execution does not establish that all document differences have been fixed. Review its report source.
-Briefs and upload selections live in memory for the current app session.
+The brief keeps the confirmed run IDs and local upload paths for traceability. **Verify after fix**
+reruns the same uploaded files. Custom runs have no recorded baseline: a passed execution does not
+establish that all document differences have been fixed. Review the reported differences.
 
 ## Build
 

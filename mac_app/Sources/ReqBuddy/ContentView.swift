@@ -28,54 +28,60 @@ struct ContentView: View {
     // MARK: input
 
     private var inputPane: some View {
-        ScrollView {
-        VStack(alignment: .leading, spacing: 10) {
-            dropZone
-            HStack {
-                TextField("…or paste file / folder paths", text: $pathText)
-                    .onSubmit { store.addPaths(pathText); pathText = "" }
-                Button("Add") { store.addPaths(pathText); pathText = "" }.disabled(pathText.isEmpty)
+        VStack(spacing: 0) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("1. Add the reported issue").font(.headline)
+                    dropZone.frame(height: 250)
+                    HStack {
+                        TextField("…or paste file / folder paths", text: $pathText)
+                            .onSubmit { store.addPaths(pathText); pathText = "" }
+                        Button("Add") { store.addPaths(pathText); pathText = "" }.disabled(pathText.isEmpty)
+                    }
+                    Text("My notes (override the sources)").font(.caption).foregroundStyle(.secondary)
+                    TextEditor(text: $store.notes)
+                        .font(.body).frame(height: 70)
+                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(.quaternary))
+                    Divider()
+                    CasesPanel()
+                }.padding(12)
             }
-            CasesPanel()
-            Text("My notes (override the sources, e.g. \"2 is by design\")").font(.caption).foregroundStyle(.secondary)
-            TextEditor(text: $store.notes)
-                .font(.body).frame(height: 70)
-                .overlay(RoundedRectangle(cornerRadius: 6).stroke(.quaternary))
             Divider()
+            generationControls.padding(12)
+        }
+    }
+
+    private var generationControls: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("3. Generate the brief").font(.headline)
             HStack {
                 Picker("Model", selection: Binding(
                     get: { store.settings.selectedProviderID ?? store.settings.providers.first?.id },
                     set: { store.settings.selectedProviderID = $0; store.caseProviderChosen = true })) {
                     ForEach(store.settings.providers) { p in Text(p.name).tag(Optional(p.id)) }
-                }
+                }.disabled(store.busy)
                 SettingsLink { Image(systemName: "gearshape") }.help("Providers, people & prompt")
             }
-            if let p = store.provider {
-                Text("\(p.model) · \(p.vision.label)").font(.caption).foregroundStyle(.secondary).lineLimit(1)
-            }
+            Text(store.generationHint).font(.caption).foregroundStyle(.secondary)
             HStack {
                 Button("Preview prompt") { Task { promptPreview = await store.previewPrompt() } }
-                    .disabled(store.checkedSources.isEmpty)
+                    .disabled(!store.canGenerate)
                 Spacer()
                 if store.busy {
                     Button("Stop", role: .cancel) { store.stop() }
                 } else {
-                    let n = store.checkedSources.count
-                    Button(n == store.sources.count || n == 0 ? "Generate brief" : "Generate brief from \(n)") { store.generate() }
+                    Button("Generate brief") { store.generate() }
                         .keyboardShortcut(.return, modifiers: .command)
                         .buttonStyle(.borderedProminent)
                         .disabled(!store.canGenerate)
-                        .help("One requirement brief from the ticked sources")
                 }
             }
-        }
-        .padding(12)
         }
     }
 
     private var dropZone: some View {
         VStack(spacing: 0) {
-            if store.sources.isEmpty && store.extracting == 0 {
+            if store.inputSources.isEmpty && store.extracting == 0 {
                 VStack(spacing: 8) {
                     Image(systemName: "tray.and.arrow.down").font(.system(size: 34)).foregroundStyle(.secondary)
                     Text("Drop emails, Lark chat PDFs, screenshots or folders").multilineTextAlignment(.center)
@@ -89,7 +95,7 @@ struct ContentView: View {
             } else {
                 List {
                     Section {
-                        ForEach(store.sources) { d in
+                        ForEach(store.inputSources) { d in
                             SourceRow(doc: d, checked: store.checked.contains(d.id), usedIn: store.usedIn(d.id),
                                       onToggle: { store.toggle(d.id) }, onRemove: { store.remove(d.id) })
                         }
@@ -159,8 +165,8 @@ struct ContentView: View {
             if !store.briefs.isEmpty { briefTabs }
             if let i = store.currentIndex, !store.briefs[i].caseRuns.isEmpty {
                 HStack {
-                    Button("Verify after fix") { store.verifyCurrentBrief() }.disabled(store.busy)
-                    Text(store.briefs[i].verification.isEmpty ? "Recorded cases rerun with strict comparison." : store.briefs[i].verification)
+                    Button("Verify after fix") { store.verifyCurrentBrief() }.disabled(store.busy || store.runningCase != nil)
+                    Text(store.briefs[i].verification.isEmpty ? "Rerun the same uploaded files to check the fix." : store.briefs[i].verification)
                         .font(.caption).textSelection(.enabled)
                 }.padding(8)
             }

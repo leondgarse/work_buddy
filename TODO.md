@@ -3,7 +3,7 @@
 ## ReqBuddy: run cases through our own system
 
 **Implemented:** settings migration, CasesAPI client, app panel and named upload slots, report sources,
-strict recorded-case verification, CLI options, and benchmark inputs. Usage: `mac_app/README.md`.
+explicit run/review/confirmation, CLI options, and benchmark inputs. Usage: `mac_app/README.md`.
 Custom uploads rerun without a recorded baseline; retail custom video/question inputs and automatic
 API-provided input schemas remain future work. The design below records the intended behavior.
 
@@ -36,27 +36,27 @@ the doc is `~/workspace/case-demos/CASES_API.md`. Endpoints used here:
      since runs can be slow, and polling can be cancelled.
    - Base URL is a setting, default `http://127.0.0.1:8110`. Add the `AppSettings` migration first (see backlog).
 2. **"Cases" panel in the app**, under the sources.
-   - Cases grouped by demo, from `/api/cases`; a demo that `/api/health` reports as not live is greyed out.
-     One checkbox per case.
-   - When any case is ticked, Generate runs those cases first, shows each case's status, then adds each
-     report as a source: "case run `<demo>/<id>` (actual output of our system)", with status, failing checks
-     or differences, the diff against the recording, and problems.
-   - New prompt rule: a case report is an observation from our own system, so state it as
-     "Actual result (case `<demo>/<id>`): …". It also confirms whether the reported problem reproduces.
-3. **File upload when a demo is chosen.**
-   - A recorded case isn't enough for most briefs: the files that matter are the customer's own PO and the
-     quotation it answers. A brief usually lists them under "Source files" as `[Should be provided]`.
-   - So choosing a demo opens **one upload slot per input the demo expects**. For `pdf_match`: "A: our
-     quotation" and "B: the customer's PO". Fill a slot by drop, paste or picker, or from a test-input file
-     already among the sources.
-   - Run is enabled only when every required slot is filled. The files go up as base64 with their names, to
-     `POST /api/demos/<demo>/run`.
-   - Slots come from a small per-demo table in the app (`pdf_match`: A, B; `packing`: 1–8 documents;
-     `logistics`: 1 RFQ; …) until the API can describe its own inputs.
+   - One checkbox per related workflow, such as `pdf_match`, with health shown from `/api/health`.
+   - Selecting a case opens its upload slots. Testing is a separate action from generating the brief.
+   - **Run case** uploads the customer's inputs, polls the API, and shows the output for review. The user
+     can replace files and rerun until the output is ready.
+   - The user confirms **Reviewed — use this result in the brief**. Generate uses only the confirmed
+     report and never reruns the API. Without a selected case, generation uses the email/chat sources alone.
+   - Changing files, rerunning, deselecting a case, or changing the API URL revokes confirmation. Incomplete
+     inputs cannot be confirmed. Valid failing results can be confirmed as observations of the issue.
+   - Report sources include status, summary, differences, baseline diff and problems. The prompt treats
+     these as actual observations from our own system and keeps run IDs for traceability.
+3. **File uploads belong to the selected case.**
+   - `pdf_match` shows two required slots: "A: our quotation" and "B: customer's PO".
+   - Fill a slot by drop, paste, picker, or a test-input file already among the sources.
+   - Run is enabled only when required inputs are filled and the backend is live. Uploads send base64
+     and filenames to `POST /api/demos/<demo>/run`; a Mac path is never used as a server path.
+   - Slots come from a small per-demo table (`packing`: 1–8 documents; `logistics`: 1 RFQ; …) until the
+     API can describe its own inputs.
 4. **Verify after the fix.**
-   - When the agent has implemented the brief, re-run the same cases with `strict=1` and show pass or fail on
-     the brief's tab.
-   - Keep the run ids in the brief so the result can be traced back.
+   - The brief retains the confirmed reports and input order. Re-run those uploaded files after the fix.
+   - Custom inputs have no recorded baseline; inspect differences even when execution passes.
+   - Strict recorded-case verification remains available through the CLI.
 5. **CLI and benchmark.**
    - `reqcli --case <demo>/<id>` (repeatable) and `--demo-run <demo>`, so benchmark cases can include actual
      results.
