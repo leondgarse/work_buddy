@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Benchmark ReqBuddy briefs: run reqcli over cases x configs, score each brief with per-case checks.
+"""Benchmark ReqBuddy briefs: run `reqbuddy brief` over cases x configs, score each brief with per-case checks.
 
 Cases are private (customer emails / chats), so they live outside the repo, by default in
 ../requirement_example/bench/*.json. Scoring is local regex checks: nothing is sent to a judge.
@@ -19,14 +19,15 @@ Case file:
 }
 Regexes are case-insensitive and run on the whole brief.
 
-Config: NAME=provider[|model][|key=value...], keys: extra (JSON), system (prompt file), image_side (px), mode (images|ocr)
+Config: NAME=provider[|model][|key=value...], keys: extra (JSON), system (prompt file), image_side (px), mode (images|text)
   python3 bench/run_bench.py -c "35b=MICL Qwen3.6 :18010" -c "35b-t03=MICL Qwen3.6 :18010||extra={\"temperature\":0.3}" -n 2
 """
-import argparse, json, os, re, subprocess, sys, time
+import argparse, json, os, re, shutil, subprocess, sys, time
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-REQCLI = HERE.parent / "dist" / "reqcli"
+_VENV = HERE.parent / ".venv" / "bin" / "reqbuddy"
+REQBUDDY = str(_VENV) if _VENV.exists() else (shutil.which("reqbuddy") or "reqbuddy")
 
 
 def parse_config(s):
@@ -40,12 +41,12 @@ def parse_config(s):
 
 
 def run_one(case, case_dir, cfg):
-    cmd = [str(REQCLI), "--provider", cfg["provider"]]
+    cmd = [REQBUDDY, "brief", "--provider", cfg["provider"]]
     if cfg.get("model"): cmd += ["--model", cfg["model"]]
     if cfg.get("extra"): cmd += ["--extra", cfg["extra"]]
     if cfg.get("system"): cmd += ["--system", cfg["system"]]
     if cfg.get("image_side"): cmd += ["--image-side", cfg["image_side"]]
-    if cfg.get("mode") == "ocr": cmd += ["--ocr"]
+    if cfg.get("mode") == "text": cmd += ["--text"]
     if cfg.get("mode") == "images": cmd += ["--images"]
     if case.get("notes"): cmd += ["--notes", case["notes"]]
     for case_id in case.get("cases", []): cmd += ["--case", case_id]
@@ -80,7 +81,7 @@ def main():
     ap.add_argument("--rescore", metavar="DIR", nargs="+",
                     help="re-score saved briefs in results dir(s) against the current checks, without running")
     ap.add_argument("-n", "--repeats", type=int, default=1)
-    ap.add_argument("--cases", default=str(HERE.parent.parent / "requirement_example" / "bench"))
+    ap.add_argument("--cases", default=os.environ.get("REQBUDDY_BENCH", str(HERE.parent.parent / "requirement_example" / "bench")))
     ap.add_argument("--only", help="regex on case id")
     ap.add_argument("--out", help="results dir (default: <cases>/results/<timestamp>)")
     a = ap.parse_args()

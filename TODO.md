@@ -1,114 +1,55 @@
 # TODO
 
-## ReqBuddy: run cases through our own system
+## reqbuddy as a web tool in case-demos `toolbox/`
 
-**Implemented:** settings migration, CasesAPI client, app panel and named upload slots, report sources,
-explicit run/review/confirmation, intermediate events, CLI options, and benchmark inputs.
-ReqBuddy can now add actual results from our system to a brief. Usage: `mac_app/README.md`.
+reqbuddy is now a command-line tool (`reqbuddy/`); the macOS app was removed. Next it becomes a **common tool**
+on the team site, shaped like the meeting assistant (`toolbox/meeting/`): `toolbox/reqbuddy/` with a page, its
+own small Python server on its own port, and a card on `toolbox/index.html`. The gateway passes `/tools/<id>/…`
+to it with the signed-in account in `X-Sv-User`.
 
-**Current workflow:**
+- **Server:** import `reqbuddy` (installed from this repo; don't copy the code) and expose the CLI's pipeline:
+  - upload files, plus notes and a provider;
+  - stream the brief back;
+  - optionally run a case first: recorded `DEMO/ID`, or a demo on uploaded files with named slots, e.g.
+    `pdf_match`: A our quotation, B the customer's PO.
+- **Per account:** the People list (who is the CTO, who is the customer, which one is "me") belongs to the
+  signed-in account, not one global config. Keys stay on the server.
+- **Privacy:** uploads are customer mail and chats. Keep them on the server, delete them after the brief, and
+  don't log content. Running there, the cases API is local and needs no base64 round trip.
+- **Page:** drop or paste files (including screenshots), notes, an optional case with its upload slots and a
+  review step, then the brief with Copy. That's the old app's useful part, without its settings windows.
+- **Also from the old app:** confirm a case result before it goes into the brief, and treat "inputs
+  incomplete" as a prompt for the missing file, never as an observation.
 
-1. **Add the reported issue** is at the top: upload and select related email/chat files and add notes.
-2. **Related case** follows it: one row of six choices — PO check (`pdf_match`), Packing, RFQ, Office,
-   Email, and No case. Only one can be selected. Its upload and review interface expands below the row.
-3. Upload the case's inputs and click **Run case**. Review Result, Stages, or Full report; replace files
-   and rerun as needed. Testing calls the Cases API without calling the brief-writing model.
-4. Confirm **Reviewed — use this result in the brief**, then **Generate brief**. Generation uses that
-   confirmed report without rerunning the API. No case skips testing and uses the selected issue sources.
+## reqbuddy: cases
 
-**Remaining case work:**
+The cases API (`http://127.0.0.1:8110`, `~/workspace/case-demos/CASES_API.md`) works from the CLI: `reqbuddy cases
+list|health|run|demo`, and `reqbuddy brief --case DEMO/ID` / `--demo-run DEMO --demo-file …` to add actual
+results to a brief.
 
-- Replace the per-demo input table when the API can describe its own inputs.
-- Support retail custom video/question inputs; recorded retail cases are available through the CLI.
+- The customer-PO verification flow is the `pdf_match` demo: **A** is our quotation, **B** is the customer's PO.
+  The API runs on the GPU box, so local files go up as base64.
+- **Reading a result:**
+  - A failure is often missing or wrong inputs (empty slot, A and B swapped, a missing cited quotation), and
+    is reported as "inputs incomplete".
+  - Recorded cases with deliberate differences (`pdf_match/issues`, `packing/mismatch`) are judged against
+    their recording.
+  - A custom upload has no recording, so a passed run doesn't mean the documents match.
+- Replace the per-demo input table (`cases.DEMO_INPUTS`) once the API can describe its own inputs.
+- Retail custom inputs (video plus questions) are not supported yet.
 
-**Verified:** 15 automated tests, live PDF upload/review/rerun with intermediate events, live packing
-intermediate events, and the release app build. Latest layout changes also passed a release build.
+## reqbuddy: prompt and benchmark
 
-**What exists:** the demo repo runs a local cases API on `http://127.0.0.1:8110`. It only binds to localhost;
-the doc is `~/workspace/case-demos/CASES_API.md`. Endpoints used here:
-
-| Endpoint | Use |
-|---|---|
-| `GET /api/health` | which demo backends are live, and which runs are busy |
-| `GET /api/cases[?demo=…]` | recorded cases: `demo`, `id`, `title`, `live` |
-| `POST /api/cases/<demo>/<id>/run?wait=0[&strict=1][&events=1]` | run a recorded case: `202` plus `Location: /api/runs/<run>`; poll until `passed`, `failed` or `error` |
-| `POST /api/demos/<demo>/run?wait=0[&events=1]` | run our pipeline on our own files: `{"files": [{"name": …, "base64": …}]}` or `{"path": …}` (per-demo rules, e.g. `pdf_match` takes exactly 2 files, `packing` 1–8) |
-| `GET /api/runs/<run>[?events=1]` | the report: `status`, `summary` (`failing`, `differences`, `compare`), `diff` against the recording, `problems`, `server_log` |
-
-**The customer-PO verification flow is the `pdf_match` demo.**
-
-- It takes 2 PDFs: **A** is the reference (the quotation we sent) and **B** is checked against it (the
-  customer's PO).
-- Recorded cases: `agree` (everything matches after unit conversion) and `issues` (a scanned PO with six
-  deliberate differences).
-- The API and its files run on the GPU box (case inputs are server paths, tunneled to this Mac), so a file
-  from the Mac must be **uploaded as base64 with a name**; the suffix picks the reader. A Mac path won't work.
-
-**Implemented design:**
-
-1. **`CasesAPI` client in `ReqCore`.**
-   - Covers health, listing cases, a recorded run, a custom run, and polling. Always uses `wait=0` and polls,
-     since runs can be slow, and polling can be cancelled.
-   - Base URL is a setting, default `http://127.0.0.1:8110`. The `AppSettings` migration uses
-     `decodeIfPresent` to preserve existing providers, People and customized prompts.
-2. **"Cases" selector after Add the reported issue.**
-   - One row of six choices: five workflows plus No case. Only one case can be selected.
-     The selected case alone expands its uploads and output, with health from `/api/health`.
-   - Selecting a case opens its upload slots. Testing is a separate action from generating the brief.
-   - **Run case** uploads the customer's inputs, polls the API, and shows the output for review. The user
-     can replace files and rerun until the output is ready.
-   - The user confirms **Reviewed — use this result in the brief**. Generate uses only the confirmed
-     report and never reruns the API. Without a selected case, generation uses the email/chat sources alone.
-   - Changing files or the events option, rerunning, switching/deselecting the case, or changing the API
-     URL revokes confirmation. Incomplete inputs cannot be confirmed. Valid failing results can be
-     confirmed as observations of the issue.
-   - Include intermediate stages requests `events=1` on POST and polling GETs. Default on for `pdf_match`,
-     optional for every other case. The API supports events for all demos; the Stages view exposes each
-     returned payload (OCR boxes, text, image paths, checks, matches, answers, etc.) after the run completes.
-   - Report sources include status, summary, differences, baseline diff, problems and requested events.
-     The prompt treats these as actual observations from our own system and keeps run IDs for traceability.
-     Artifact paths in events belong to the server, not the Mac.
-3. **File uploads belong to the selected case.**
-   - `pdf_match` shows two required slots: "A: our quotation" and "B: customer's PO".
-   - Fill a slot by drop, paste, picker, or a test-input file already among the sources.
-   - Run is enabled only when required inputs are filled and the backend is live. Uploads send base64
-     and filenames to `POST /api/demos/<demo>/run`; a Mac path is never used as a server path.
-   - Slots come from a small per-demo table (`packing`: 1–8 documents; `logistics`: 1 RFQ; …) until the
-     API can describe its own inputs.
-4. **Verify after the fix.**
-   - The brief retains the confirmed reports and input order. Re-run those uploaded files after the fix.
-   - Custom inputs have no recorded baseline; inspect differences even when execution passes.
-   - Strict recorded-case verification remains available through the CLI.
-5. **CLI and benchmark.**
-   - `reqcli --case <demo>/<id>` (repeatable), or `--demo-run <demo>` with ordered `--demo-file` uploads.
-   - `--case-events` includes intermediate events; `--cases-only` prints reports without calling a model.
-   - Benchmark cases support recorded cases, custom uploads and `case_events: true`.
-6. **Privacy.**
-   - Run reports come from customer documents. Send them only to the model the user picked, and default to a
-     local model when cases are ticked.
-
-**Reading a run's result:**
-
-- A failure is often **missing or wrong inputs**, not a bug: a slot left empty, A and B swapped, or the
-  quotation the PO cites not provided. Treat the API's `bad_input` problems, and an error before the pipeline
-  ran, as "inputs incomplete" in the app. Prompt for the missing file; don't add it to the brief as an
-  observation.
-- Some recorded cases contain deliberate differences (`pdf_match/issues`, `packing/mismatch`, …).
-  Compare the run with its recording (`diff`, `matches_recording`) rather than reading `failed`/`passed`
-  alone. Custom uploads have no recording; a passed execution does not mean the documents match.
-
-## ReqBuddy: prompt and benchmark backlog
-
-- **Parked: local-model benchmark.** The GPU box is fully booked by other work, so local models are skipped for
-  now; Gemini is the working model. When GPUs free up: prompt v4, n=3, the 35B against Gemini, and Fable v4
-  (only while `:18010` sleeps). Earlier rounds: Fable 96% and 35B 92% on the first case with v2 + temperature 0.3.
+- **Benchmark cases:** 4 scored cases (a UI-copy chat and three PO-parsing chats; private, in
+  `requirement_example/bench/`). Gemini with prompt v5: 96% (v4: 92%), and the same 96% from the Python CLI.
+  Add a case for each new requirement once it's implemented and the implementer has reviewed the brief.
+- **Parked: local-model benchmark.** The GPU box is booked by other work, and Gemini is the working model. When
+  GPUs free up: prompt v5, n=3, the 35B against Gemini, and Fable (only while `:18010` sleeps). Earlier rounds:
+  Fable 96% and 35B 92% on the first case with v2 + temperature 0.3.
+- **No OCR fallback in the CLI** (the macOS app had Apple Vision). Every model in use takes images. If a text-only
+  model is needed, call an OCR server on the GPU box rather than adding a platform-specific dependency.
 - **Failed-match items:** should they name both sides, the value from the document and the system record it
   should match? The implementer found that useful, but the "don't over-specify" rule drops it. Decide, then add
   a check for it.
-- **Keep a guess attached to the message it answers.** It's now a benchmark check: v4 placed the guess right in
-  2 of 2 runs, while an earlier prompt misplaced it once. Watch it as more cases arrive before adding a rule.
-- **Benchmark cases:** 4 scored cases now (a UI-copy chat and three PO-parsing chats; private, in
-  `requirement_example/bench/`). Gemini with prompt v5: 96% (v4: 92%). The quotation email was dropped: its issue
-  is covered by the second PackingList chat, and it will get no implementation of its own. Add a case for each
-  new requirement once it's implemented and the implementer has reviewed the brief.
-- **Drag messages straight from Mail.app** (file promises) instead of "Save As… .rtfd".
+- **Keep a guess attached to the message it answers.** It's a benchmark check now; watch it as more cases arrive
+  before adding a rule.
