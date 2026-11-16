@@ -99,8 +99,9 @@ the doc is `~/workspace/case-demos/CASES_API.md`. Endpoints used here:
 
 ## ReqBuddy: prompt and benchmark backlog
 
-- **Re-run the local benchmark when `:18010` is idle.** The last 35B round queued behind another job. Run
-  prompt v4, n=3, the 35B against Gemini, and Fable v4 (only while `:18010` sleeps).
+- **Parked: local-model benchmark.** The GPU box is fully booked by other work, so local models are skipped for
+  now; Gemini is the working model. When GPUs free up: prompt v4, n=3, the 35B against Gemini, and Fable v4
+  (only while `:18010` sleeps). Earlier rounds: Fable 96% and 35B 92% on the first case with v2 + temperature 0.3.
 - **Failed-match items:** should they name both sides, the value from the document and the system record it
   should match? The implementer found that useful, but the "don't over-specify" rule drops it. Decide, then add
   a check for it.
