@@ -107,8 +107,8 @@ the doc is `~/workspace/case-demos/CASES_API.md`. Endpoints used here:
   a check for it.
 - **Keep a guess attached to the message it answers.** It's now a benchmark check: v4 placed the guess right in
   2 of 2 runs, while an earlier prompt misplaced it once. Watch it as more cases arrive before adding a rule.
-- **Benchmark cases:** 3 scored cases now (a UI-copy chat and two PO-parsing chats; private, in
-  `requirement_example/bench/`). Gemini with prompt v4: 95%. The quotation email was dropped: its issue is covered
-  by the second PackingList chat, and it will get no implementation of its own. Add a case for each new
-  requirement once it's implemented and the implementer has reviewed the brief.
+- **Benchmark cases:** 4 scored cases now (a UI-copy chat and three PO-parsing chats; private, in
+  `requirement_example/bench/`). Gemini with prompt v5: 96% (v4: 92%). The quotation email was dropped: its issue
+  is covered by the second PackingList chat, and it will get no implementation of its own. Add a case for each
+  new requirement once it's implemented and the implementer has reviewed the brief.
 - **Drag messages straight from Mail.app** (file promises) instead of "Save As… .rtfd".

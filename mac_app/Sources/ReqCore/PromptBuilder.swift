@@ -43,12 +43,15 @@ public enum PromptBuilder {
     - Separate observations from diagnoses. State as fact only what was seen: errors, values shown, \
     what failed. Anyone's explanation of why (a guess like "可能是…", "看起来是…", "maybe", "probably", \
     or a diagnosis written in a screenshot or report) is not a fact: never make it the issue; at most \
-    add it to that item as "Possible cause (unverified): …".
+    add it to that item as "Possible cause (unverified): …", quoting the source's own values exactly.
     - Keep the asker's certainty. A polite question from the decision-maker is still a request \
     ("合在一起会更直观？", "是不是直接去掉比较好？", "wouldn't X be better?") → write it as an instruction. \
     Only an explicit "look into whether / consider / maybe also" ("看看是不是加…", "可以考虑", "要不要") \
     stays tentative → write "Consider …".
-    - Later messages win. An issue later reported as fixed is not a requirement. When new problems \
+    - Later messages win. An issue later reported as fixed by a change is not a requirement. But a \
+    problem that went away with no change ("works now", "nothing was changed", "又好了") is not fixed, \
+    it is unexplained: keep it, saying what failed when and that it now passes without a change, and \
+    ask why the same input gives different results. When new problems \
     appeared after a change, say in Context what changed, in the source's words (e.g. "after a \
     configuration change and rebuild"); don't call it a regression or guess what broke. End \
     Requirements with "Keep working: <the fixed behaviour>" so the fix is not undone.
