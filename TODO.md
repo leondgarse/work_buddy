@@ -104,8 +104,10 @@ the doc is `~/workspace/case-demos/CASES_API.md`. Endpoints used here:
 - **Failed-match items:** should they name both sides, the value from the document and the system record it
   should match? The implementer found that useful, but the "don't over-specify" rule drops it. Decide, then add
   a check for it.
-- **Keep a guess attached to the message it answers.** One run attached a "two Total Amounts" guess to the
-  contract total instead of the quotation import it was about.
-- **Add benchmark cases once implemented:** the quotation email (with its notes) and the second PackingList
-  chat.
+- **Keep a guess attached to the message it answers.** It's now a benchmark check: v4 placed the guess right in
+  2 of 2 runs, while an earlier prompt misplaced it once. Watch it as more cases arrive before adding a rule.
+- **Benchmark cases:** 3 scored cases now (a UI-copy chat and two PO-parsing chats; private, in
+  `requirement_example/bench/`). Gemini with prompt v4: 95%. The quotation email was dropped: its issue is covered
+  by the second PackingList chat, and it will get no implementation of its own. Add a case for each new
+  requirement once it's implemented and the implementer has reviewed the brief.
 - **Drag messages straight from Mail.app** (file promises) instead of "Save As… .rtfd".
