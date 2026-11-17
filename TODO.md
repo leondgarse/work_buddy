@@ -2,7 +2,7 @@
 
 ## reqbuddy as a web tool
 
-Done (17 Nov 2026): the **Brief writer** on the case-demos Tools page, `toolbox/reqbuddy/` (its `README.md`). Its
+Done (17 Nov 2026): the **Brief writer**, leondgarse's own tool on the case-demos Tools page, `toolbox/users/leondgarse/reqbuddy/` (its `README.md`). Its
 server imports `reqbuddy` from this folder and runs in its `.venv`, so a change to the pipeline here reaches the site
 when that server restarts. It calls `extract`, `prompt.build`, `llm.Client`, `CasesAPI` and `DEMO_INPUTS`: keep
 those signatures, or change the server with them.
