@@ -1,25 +1,14 @@
 # TODO
 
-## reqbuddy as a web tool in case-demos `toolbox/`
+## reqbuddy as a web tool
 
-reqbuddy is now a command-line tool (`reqbuddy/`); the macOS app was removed. Next it becomes a **common tool**
-on the team site, shaped like the meeting assistant (`toolbox/meeting/`): `toolbox/reqbuddy/` with a page, its
-own small Python server on its own port, and a card on `toolbox/index.html`. The gateway passes `/tools/<id>/…`
-to it with the signed-in account in `X-Sv-User`.
+Done (17 Nov 2026): the **Brief writer** on the case-demos Tools page, `toolbox/reqbuddy/` (its `README.md`). Its
+server imports `reqbuddy` from this folder and runs in its `.venv`, so a change to the pipeline here reaches the site
+when that server restarts. It calls `extract`, `prompt.build`, `llm.Client`, `CasesAPI` and `DEMO_INPUTS`: keep
+those signatures, or change the server with them.
 
-- **Server:** import `reqbuddy` (installed from this repo; don't copy the code) and expose the CLI's pipeline:
-  - upload files, plus notes and a provider;
-  - stream the brief back;
-  - optionally run a case first: recorded `DEMO/ID`, or a demo on uploaded files with named slots, e.g.
-    `pdf_match`: A our quotation, B the customer's PO.
-- **Per account:** the People list (who is the CTO, who is the customer, which one is "me") belongs to the
-  signed-in account, not one global config. Keys stay on the server.
-- **Privacy:** uploads are customer mail and chats. Keep them on the server, delete them after the brief, and
-  don't log content. Running there, the cases API is local and needs no base64 round trip.
-- **Page:** drop or paste files (including screenshots), notes, an optional case with its upload slots and a
-  review step, then the brief with Copy. That's the old app's useful part, without its settings windows.
-- **Also from the old app:** confirm a case result before it goes into the brief, and treat "inputs
-  incomplete" as a prompt for the missing file, never as an observation.
+- Not yet used on a real requirement there; the People list starts empty per account.
+- Mail `.rtfd` is a folder and cannot be uploaded from a browser: `.eml` or PDF there.
 
 ## reqbuddy: cases
 
