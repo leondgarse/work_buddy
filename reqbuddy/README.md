@@ -42,6 +42,8 @@ that misled the agent:
 - **The asker's certainty is kept.** A manager's polite question is an instruction; "look into whether"
   becomes "Consider…"; an open-ended ask becomes "Propose…, share the proposal before changing it". Nothing is
   added that nobody asked for.
+- **The ask stays as narrow as the complaint.** Two rows that are one item but weren't paired: pair and compare
+  them, not "they should match" (their fields may really differ).
 - **Images are resolved.** Colours and highlights become the exact element. Labels from screenshots of our
   own UI are said to be shown there.
 - **Later messages win.** An item a change fixed is dropped. A problem that went away with no change is kept:

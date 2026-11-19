@@ -29,8 +29,10 @@ results to a brief.
 
 ## reqbuddy: prompt and benchmark
 
-- **Benchmark cases:** 4 scored cases (a UI-copy chat and three PO-parsing chats; private, in
-  `requirement_example/bench/`). Gemini with prompt v5: 96% (v4: 92%), and the same 96% from the Python CLI.
+- **Benchmark cases:** 5 scored cases (a UI-copy chat and four PO-parsing chats; private, in
+  `requirement_example/bench/`). Gemini with prompt v6 (unpaired rows: pair and compare, don't promise a match):
+  ~95%, the same as v5 on the old cases, and it fixes the new one. Remaining misses are run-to-run noise (e.g. a
+  misread date inside a quoted cause, which v5 does as often).
   Add a case for each new requirement once it's implemented and the implementer has reviewed the brief.
 - **Parked: local-model benchmark.** The GPU box is booked by other work, and Gemini is the working model. When
   GPUs free up: prompt v5, n=3, the 35B against Gemini, and Fable (only while `:18010` sleeps). Earlier rounds:
