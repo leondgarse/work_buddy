@@ -119,3 +119,19 @@ def jpeg_data_url(data: bytes, long_side: int = 1600) -> tuple[str, tuple[int, i
         buf = io.BytesIO()
         im.save(buf, "JPEG", quality=85)
         return "data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode(), im.size
+
+
+REVIEW_REQUEST = """Now check that brief against the rules before it goes to the agent. Go through each item and fix it where needed:
+1. Only what was seen is stated as fact. Anyone's explanation or guess about why is at most "Possible cause (unverified): …", quoting the source's values exactly; a count or claim nobody can see in the images is "reported".
+2. Later messages win: drop items reported fixed by a change, items a decision-maker set aside as a separate issue, and problems only seen somewhere the sources say is not the baseline (another environment, an old version). Keep a problem that went away without a change.
+3. Each item asks for exactly what was asked, with the asker's certainty. Things that should be linked are to be paired and compared, not promised to match.
+4. Values are quoted exactly as the sources show them; UI labels and row numbers from our own screenshots are said to be shown there.
+5. Source files: only test inputs (documents the feature processes) named in the sources, never screenshots or the chat itself.
+6. No people's names, no colours or highlights, no causes or implementation advice.
+Output only the final brief, in the same Markdown format, with no notes about what you changed."""
+
+
+def review_messages(built: Built, draft: str) -> list[dict]:
+    """A second pass: the same conversation, the draft as the model's answer, then a request to check it."""
+    return built.messages + [{"role": "assistant", "content": draft},
+                             {"role": "user", "content": REVIEW_REQUEST}]

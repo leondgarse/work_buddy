@@ -20,7 +20,7 @@ Case file:
 Regexes are case-insensitive and run on the whole brief.
 
 Config: NAME=provider[|model][|key=value...], keys: extra (JSON), system (prompt file), image_side (px), mode (images|text),
-  transcriber (PROVIDER::MODEL, for a text-only model: a vision model transcribes pictures first)
+  review (1: second pass), transcriber (PROVIDER::MODEL, for a text-only model: a vision model transcribes pictures first)
   python3 bench/run_bench.py -c "35b=MICL Qwen3.6 :18010" -c "35b-t03=MICL Qwen3.6 :18010||extra={\"temperature\":0.3}" -n 2
 """
 import argparse, json, os, re, shutil, subprocess, sys, time
@@ -48,6 +48,7 @@ def run_one(case, case_dir, cfg):
     if cfg.get("system"): cmd += ["--system", cfg["system"]]
     if cfg.get("image_side"): cmd += ["--image-side", cfg["image_side"]]
     if cfg.get("mode") == "text": cmd += ["--text"]
+    if cfg.get("review"): cmd += ["--review"]
     if cfg.get("transcriber"): cmd += ["--transcriber", cfg["transcriber"].replace("::", "|")]
     if cfg.get("mode") == "images": cmd += ["--images"]
     if case.get("notes"): cmd += ["--notes", case["notes"]]

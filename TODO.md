@@ -34,13 +34,27 @@ results to a brief.
   ~95%, the same as v5 on the old cases, and it fixes the new one. Remaining misses are run-to-run noise (e.g. a
   misread date inside a quoted cause, which v5 does as often).
   Add a case for each new requirement once it's implemented and the implementer has reviewed the brief.
-- **Local models (19 Nov 2026, prompt v6, 5 cases, temperature 0.3; Gemini ~95%):** 27B Fable 81% (n=2,
-  ~110 s/brief), 35B-A3B 74% (n=2, ~100 s), Nemotron-3.5-30B text-only + Qwen3-VL-4B transcripts 64% (n=1,
-  ~210 s), Gemma-4-26B with thinking off 58% (n=1, 8 s; with thinking on it never answers). All of them read the
-  screenshots fine; they miss the judgement rules: which messages count (test env vs production), guesses kept
-  apart from facts, which two rows are one item. Fable is the local choice for private material; Gemini stays the
-  default. Next to try for an all-local setup: the 35B/Fable with thinking budgets, or a two-pass brief (draft,
-  then check it against the rules).
+- **Local models (19 Nov 2026, prompt v6, 5 cases).** Seconds are wall time per brief on the 2× RTX 8000 box,
+  the first brief after a load included; n = runs per case.
+
+  | model | score | mean s | range s | n |
+  |---|---|---|---|---|
+  | Gemini 3.8 Flash (cloud, for reference) | ~95% | ~25 | 15–40 | 2 |
+  | Qwen3.8-27B dense Q8_0, temp 0.3 | 85% | ~780 | 470–1190 | 1 |
+  | Qwen3.6-27B Fable Q4, temp 0.3 | 81% | ~110 | 27–290 | 2 |
+  | Muse Glimmer-30B Q4 + dflash drafter (new llama.cpp, standalone) | 80% | ~106 | 74–150 | 1 |
+  | Muse Glimmer-30B, "Reasoning effort: high" | 78% | ~100 | 83–139 | 1 |
+  | Qwen3.6-35B-A3B Q8, temp 0.3 | 74% | ~100 | 33–350 | 2 |
+  | Fable + `--review` second pass | 64% (one run stuck reasoning) | ~520 | 103–1640 | 1 |
+  | Nemotron-3.5-30B text-only + Qwen3-VL-4B transcripts | 64% | ~210 | 153–340 | 1 |
+  | Gemma-4-26B-A4B, thinking off (on: never answers) | 58% | 8 | 5–11 | 1 |
+
+  All of them read the screenshots fine; they miss the judgement rules (which messages count, guesses vs facts,
+  which rows are one item). More reasoning didn't help: Glimmer high effort and the second pass scored lower.
+  For private material use the Fable (or Glimmer, same quality and speed); Qwen3.8 is the most accurate local
+  model but too slow for daily use. Glimmer files are in `~/workspace/models/Muse-Glimmer-30B-GGUF/` on the box;
+  it needs the new llama.cpp in `~/.local/bin`, not the router's build. Re-test when a stronger mid-size model
+  lands.
 - **No OCR fallback in the CLI** (the macOS app had Apple Vision). Every model in use takes images. If a text-only
   model is needed, call an OCR server on the GPU box rather than adding a platform-specific dependency.
 - **Failed-match items:** should they name both sides, the value from the document and the system record it

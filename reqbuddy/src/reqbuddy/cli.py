@@ -21,7 +21,7 @@ from .cases import DEMO_INPUTS, CasesAPI, CasesError
 from .extract import ExtractError, expand, extract
 from .llm import Client, LLMError
 from .describe import parse_spec, transcriber
-from .prompt import build, case_report_rule, default_system_prompt
+from .prompt import build, case_report_rule, default_system_prompt, review_messages
 
 COMMANDS = ("brief", "cases", "models", "prompt", "config")
 
@@ -54,6 +54,9 @@ def main(argv: list[str] | None = None) -> int:
     b.add_argument("--extra", help='JSON merged into the request, e.g. \'{"temperature":0.3}\'')
     b.add_argument("--system", type=Path, help="system prompt file (A/B tests)")
     b.add_argument("--image-side", type=int, help="long side (px) of images sent")
+    b.add_argument("--review", action="store_true",
+                   help="second pass: the model checks its draft against the rules and rewrites it "
+                        "(experimental: it scored lower with local models, see TODO.md)")
     b.add_argument("--transcriber", metavar="PROVIDER[|MODEL]",
                    help="for a text-only model: a vision model that transcribes each picture first "
                         "(default: config `transcriber`; 'none' to drop pictures)")
@@ -153,6 +156,9 @@ def cmd_brief(a: argparse.Namespace) -> int:
         nonlocal thinking
         thinking += len(r)
     brief = client.complete(built.messages, on_delta)
+    if a.review:
+        err(f"draft done in {time.monotonic() - t0:.1f}s; reviewing it")
+        brief = client.complete(review_messages(built, brief), on_delta)
     if reports:
         brief += "\n\n## Case runs\n" + "".join(f"- {r.label}: run `{r.run}` — {r.verdict}\n" for r in reports)
     print(brief)
