@@ -55,7 +55,13 @@ that misled the agent:
 Any OpenAI-compatible `/chat/completions` endpoint. Providers live in the config: Gemini and DeepSeek (keys
 from `GEMINI_API_KEY` / `DEEPSEEK_API_KEY`), and local llama.cpp servers. Image support is auto-detected from the
 server's `/v1/models`; `--images` / `--text` override it. Local presets send `{"temperature": 0.3}`. Mail and
-chats can be private: prefer a local model when that matters. A reply with reasoning but no answer is an error.
+chats can be private: prefer a local model when that matters. A reply with reasoning but no answer is an error, and so is 200k characters of reasoning before any answer (a
+model stuck thinking; turn thinking off with `--extra '{"chat_template_kwargs":{"enable_thinking":false}}'`).
+
+A **text-only model** can still use the pictures: `--transcriber "PROVIDER[|MODEL]"` (or `transcriber` in the
+config) has a vision model transcribe each picture first, verbatim, with `[MARKED: …]` where someone drew a box or
+arrow; the transcript replaces the picture. A small local one does this well, e.g. the router's Qwen3-VL-4B
+(~13 s a page). With case reports, the transcriber must be local too.
 
 ```bash
 reqbuddy models -p gemini        # models, and whether each takes images
@@ -96,6 +102,6 @@ and regex checks, scored locally. Config syntax: `NAME=provider[|model][|key=val
 
 ## Code
 
-`extract.py` (inputs → `Source`), `prompt.py` (system prompt + user message), `llm.py` (streaming client),
+`extract.py` (inputs → `Source`), `describe.py` (pictures → text for a text-only model), `prompt.py` (system prompt + user message), `llm.py` (streaming client),
 `cases.py` (cases API), `config.py`, `cli.py`. Run the tests with `uv run pytest`; they use synthetic
 fixtures only.

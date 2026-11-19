@@ -6,3 +6,4 @@ dist/
 data/
 .env
 requirement_example/
+.DS_Store

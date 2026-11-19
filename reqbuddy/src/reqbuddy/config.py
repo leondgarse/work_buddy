@@ -53,6 +53,7 @@ class Config:
     max_images: int = 16
     image_side: int = 1600            # long side (px) of images sent to the model
     cases_url: str = "http://127.0.0.1:8110"
+    transcriber: str = ""             # "provider[|model]": a vision model that transcribes pictures for a text-only model
 
     def provider(self, name: str | None = None) -> Provider:
         """By name prefix (case-insensitive); None = the default."""
@@ -79,6 +80,7 @@ class Config:
             max_images=d.get("max_images", base.max_images),
             image_side=d.get("image_side", base.image_side),
             cases_url=d.get("cases_url", base.cases_url),
+            transcriber=d.get("transcriber", ""),
         )
 
 

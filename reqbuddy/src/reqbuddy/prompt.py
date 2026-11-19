@@ -13,7 +13,9 @@ from importlib import resources
 from PIL import Image
 
 from .config import Config
-from .extract import Source
+from typing import Callable
+
+from .extract import Picture, Source
 
 
 def default_system_prompt() -> str:
@@ -33,7 +35,9 @@ class Built:
 
 
 def build(sources: list[Source], cfg: Config, notes: str = "", send_images: bool = True,
-          image_side: int | None = None, system_prompt: str | None = None) -> Built:
+          image_side: int | None = None, system_prompt: str | None = None,
+          transcribe: Callable[[Picture, str], str] | None = None) -> Built:
+    """transcribe: for a text-only model, turns each picture into text (see describe.py) that takes its place."""
     parts: list[dict] = []
     preview: list[str] = []
 
@@ -50,6 +54,8 @@ def build(sources: list[Source], cfg: Config, notes: str = "", send_images: bool
         head += f"\n## My notes (authoritative, override the sources)\n{notes.strip()}\n"
     head += "\n## Sources\n"
     head += ("Images are attached inline after the text of the source they belong to.\n" if send_images
+             else "Images were transcribed to text by a vision model; each transcript follows the source it "
+                  "belongs to. [MARKED: …] is what a highlight, box or arrow points at.\n" if transcribe
              else "Images are not available to you; only the text below.\n")
     add(head)
 
@@ -66,7 +72,7 @@ def build(sources: list[Source], cfg: Config, notes: str = "", send_images: bool
         else:
             t = f"\n### {s}: {d.kind} - {d.path.name}\nPath: {d.path}\n"
         add(t + "\n" + d.text + "\n")
-        if not send_images:
+        if not send_images and not transcribe:
             dropped += len(d.pictures)
             continue
         for pic in d.pictures:
@@ -76,10 +82,13 @@ def build(sources: list[Source], cfg: Config, notes: str = "", send_images: bool
             url, (w, h) = jpeg_data_url(pic.data, side)
             budget -= 1
             sent += 1
+            if not send_images:
+                add(f"\n[{s} {pic.label}, transcribed]\n{transcribe(pic, f'{s} {pic.label}')}\n")
+                continue
             add(f"\n[{s} {pic.label}]\n")
             parts.append({"type": "image_url", "image_url": {"url": url}})
             preview.append(f"<image {w}x{h}>\n")
-    if send_images and dropped:
+    if (send_images or transcribe) and dropped:
         add(f"\n({dropped} more images omitted by the image limit.)\n")
     add("\nAll sources above belong to ONE requirement. Write exactly one brief now.")
 

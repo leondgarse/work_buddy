@@ -170,3 +170,24 @@ def test_cli_dry_run_and_prompt(tmp_path, monkeypatch, capsys):
     assert "Please rename the column." in out and "Write exactly one brief now." in out
     assert cli.main(["prompt"]) == 0 and "capable coding agent" in capsys.readouterr().out
     assert cli.main(["brief", "--provider", "nope", str(tmp_path / "note.txt")]) == 1
+
+
+def test_text_only_model_gets_transcripts_in_place_of_pictures():
+    from reqbuddy.extract import Picture
+    buf = io.BytesIO()
+    Image.new("RGB", (40, 30), "white").save(buf, "PNG")
+    s = Source(Path("chat.pdf"), "chat", "a message", [Picture("Page 1", buf.getvalue())])
+    seen = []
+    def fake(pic, where):
+        seen.append(where)
+        return "Item 3 [MARKED: Mismatch]"
+    b = build([s], defaults(), send_images=False, transcribe=fake)
+    text = b.messages[1]["content"]
+    assert isinstance(text, str) and "[S1 Page 1, transcribed]\nItem 3 [MARKED: Mismatch]" in text
+    assert "transcribed to text by a vision model" in text and seen == ["S1 Page 1"] and b.image_count == 1
+
+
+def test_drop_repeats_cuts_a_loop():
+    from reqbuddy.describe import drop_repeats
+    out = drop_repeats("title\n| a | b |\n|---|---|\n" + "| x | 1 |\n" * 9)
+    assert out.count("| x | 1 |") == 3 and out.endswith("[… repeated output cut]")

@@ -20,6 +20,7 @@ from . import config as cfgmod
 from .cases import DEMO_INPUTS, CasesAPI, CasesError
 from .extract import ExtractError, expand, extract
 from .llm import Client, LLMError
+from .describe import parse_spec, transcriber
 from .prompt import build, case_report_rule, default_system_prompt
 
 COMMANDS = ("brief", "cases", "models", "prompt", "config")
@@ -53,6 +54,9 @@ def main(argv: list[str] | None = None) -> int:
     b.add_argument("--extra", help='JSON merged into the request, e.g. \'{"temperature":0.3}\'')
     b.add_argument("--system", type=Path, help="system prompt file (A/B tests)")
     b.add_argument("--image-side", type=int, help="long side (px) of images sent")
+    b.add_argument("--transcriber", metavar="PROVIDER[|MODEL]",
+                   help="for a text-only model: a vision model that transcribes each picture first "
+                        "(default: config `transcriber`; 'none' to drop pictures)")
     b.add_argument("--case", action="append", default=[], metavar="DEMO/ID", help="run a recorded case first")
     b.add_argument("--demo-run", metavar="DEMO", help="run our pipeline on --demo-file inputs first")
     b.add_argument("--demo-file", action="append", default=[], type=Path, metavar="FILE",
@@ -129,9 +133,17 @@ def cmd_brief(a: argparse.Namespace) -> int:
 
     client = Client(provider)
     send_images = client.accepts_images()
-    built = build(sources, cfg, notes, send_images, a.image_side, system)
+    spec = a.transcriber if a.transcriber is not None else cfg.transcriber
+    tr = None
+    if not send_images and spec and spec.lower() != "none":
+        tp = parse_spec(cfg, spec)
+        if reports and not tp.is_local and not a.provider:
+            raise KeyError("case reports hold customer data: the transcriber must be local too")
+        tr = transcriber(tp, a.image_side or cfg.image_side, progress=err)
+    built = build(sources, cfg, notes, send_images, a.image_side, system, transcribe=tr)
     err(f"provider={provider.name} model={provider.model} "
-        + (f"images={built.image_count} sent" if send_images else "text only (no images)"))
+        + (f"images={built.image_count} sent" if send_images
+           else f"text only, {built.image_count} picture(s) transcribed" if tr else "text only (no images)"))
     if a.dry_run:
         print(built.preview)
         return 0

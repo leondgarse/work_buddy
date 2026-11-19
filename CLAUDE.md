@@ -49,7 +49,7 @@ examples in prompt rules generic: never paste a case's own answer into a rule.
 
 ## Local models (GPU box)
 
-Currently skipped: the GPUs are fully booked by other work, and Gemini is the working model. When they're back:
+Gemini is the working model; local ones score lower (see `TODO.md`). When using them:
 
 - The 35B (`Qwen3.6-35B-A3B-Q8_0`) is another project's standalone llama-server, tunneled to `localhost:18010`.
   It sleeps after 10 idle minutes and is often busy, so expect queueing.
@@ -57,4 +57,6 @@ Currently skipped: the GPUs are fully booked by other work, and Gemini is the wo
   is loaded:** two copies don't fit on the GPUs, and the router has been OOM-killed that way before. Before
   loading any other router model, check free GPU memory, and unload it afterwards
   (`POST /models/unload {"model": …}`).
+- Gemma 4 with thinking on never stops reasoning on these inputs: send
+  `"chat_template_kwargs": {"enable_thinking": false}` (the client also stops after 200k reasoning characters).
 - Local presets use temperature 0.3: it scored higher in the benchmark and ran ~3× faster than the default ~1.0.

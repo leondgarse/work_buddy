@@ -34,9 +34,13 @@ results to a brief.
   ~95%, the same as v5 on the old cases, and it fixes the new one. Remaining misses are run-to-run noise (e.g. a
   misread date inside a quoted cause, which v5 does as often).
   Add a case for each new requirement once it's implemented and the implementer has reviewed the brief.
-- **Parked: local-model benchmark.** The GPU box is booked by other work, and Gemini is the working model. When
-  GPUs free up: prompt v5, n=3, the 35B against Gemini, and Fable (only while `:18010` sleeps). Earlier rounds:
-  Fable 96% and 35B 92% on the first case with v2 + temperature 0.3.
+- **Local models (19 Nov 2026, prompt v6, 5 cases, temperature 0.3; Gemini ~95%):** 27B Fable 81% (n=2,
+  ~110 s/brief), 35B-A3B 74% (n=2, ~100 s), Nemotron-3.5-30B text-only + Qwen3-VL-4B transcripts 64% (n=1,
+  ~210 s), Gemma-4-26B with thinking off 58% (n=1, 8 s; with thinking on it never answers). All of them read the
+  screenshots fine; they miss the judgement rules: which messages count (test env vs production), guesses kept
+  apart from facts, which two rows are one item. Fable is the local choice for private material; Gemini stays the
+  default. Next to try for an all-local setup: the 35B/Fable with thinking budgets, or a two-pass brief (draft,
+  then check it against the rules).
 - **No OCR fallback in the CLI** (the macOS app had Apple Vision). Every model in use takes images. If a text-only
   model is needed, call an OCR server on the GPU box rather than adding a platform-specific dependency.
 - **Failed-match items:** should they name both sides, the value from the document and the system record it

@@ -69,8 +69,12 @@ class Client:
             pass
         return any(h in self.provider.model.lower() for h in VISION_NAME_HINTS)
 
-    def complete(self, messages: list[dict], on_delta: Callable[[str, str], None] | None = None) -> str:
-        """Streams the answer; on_delta(content, reasoning) gets each chunk. Returns the answer, thinking removed."""
+    def complete(self, messages: list[dict], on_delta: Callable[[str, str], None] | None = None,
+                 max_reasoning_chars: int = 200_000) -> str:
+        """Streams the answer; on_delta(content, reasoning) gets each chunk. Returns the answer, thinking removed.
+
+        Stops when the model has reasoned for max_reasoning_chars without starting its answer: some local models
+        (Gemma 4 with thinking on) never stop thinking on long inputs."""
         body = {"model": self.provider.model, "messages": messages, "stream": True, **(self.provider.extra or {})}
         try:
             resp = urllib.request.urlopen(self._request("/chat/completions", body), timeout=self.timeout)
@@ -99,6 +103,9 @@ class Client:
                 rc = delta.get("reasoning_content") or delta.get("reasoning") or ""
                 out.append(c)
                 reasoning += len(rc)
+                if reasoning > max_reasoning_chars and not "".join(out).strip():
+                    raise LLMError(f"the model reasoned for {reasoning} characters without answering; stopped. "
+                                   'Try turning thinking off: --extra \'{"chat_template_kwargs":{"enable_thinking":false}}\'')
                 if on_delta and (c or rc):
                     on_delta(c, rc)
         answer = strip_thinking("".join(out))
